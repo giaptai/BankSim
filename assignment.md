@@ -70,11 +70,30 @@ Bạn sẽ xây dựng một ứng dụng console mô phỏng hệ thống ngân
 
 ### **3\. Yêu Cầu Về Cơ Sở Dữ Liệu (JDBC)**
 
-* **Thiết lập Kết nối JDBC**: Thiết lập kết nối đến CSDL.  
+* **Lớp DatabaseManager** 🗄️  
+  * **Mô tả**: Lớp này chịu trách nhiệm về mọi tương tác với cơ sở dữ liệu. Nó đóng vai trò là cầu nối giữa ứng dụng và CSDL.  
+  * **Thuộc tính**:  
+    * private Connection connection: Kết nối tới CSDL.  
+  * **Phương thức**:  
+    * public DatabaseManager(): Constructor để thiết lập kết nối JDBC (ví dụ: DriverManager.getConnection(...)).  
+    * public void saveAccount(Account account):  
+      * Lưu một tài khoản mới vào bảng accounts.  
+      * Sử dụng PreparedStatement với câu lệnh INSERT.  
+    * public void updateAccount(Account account):  
+      * Cập nhật số dư của tài khoản trong CSDL.  
+      * Sử dụng PreparedStatement với câu lệnh UPDATE.  
+    * public void saveTransaction(List<Transaction> transactions):  
+      * Lưu một hoặc nhiều giao dịch vào bảng transactions trong cùng một transaction của DB.  
+      * Sử dụng PreparedStatement với câu lệnh INSERT để batch insert.  
+    * public Account getAccountById(String accountId):  
+      * Lấy thông tin tài khoản từ CSDL dựa trên accountId.  
+      * Trả về một đối tượng Account hoặc null nếu không tìm thấy.  
+    * public List\<Transaction\> getTransactionsByAccountId(String accountId):  
+      * Lấy lịch sử giao dịch từ bảng transactions.  
+      * Trả về một List\<Transaction\>.  
+    * public void closeConnection(): Đóng kết nối CSDL khi ứng dụng kết thúc.  
   * **Điểm**: **1.5 điểm** (trung bình).  
-* **Lớp DatabaseManager**: Tạo lớp chịu trách nhiệm về mọi tương tác với CSDL.  
-  * **Điểm**: **1.5 điểm** (trung bình).  
-* **Sử dụng PreparedStatement**: Sử dụng PreparedStatement để chống lại **SQL Injection** trong mọi câu lệnh.  
+* **Sử dụng PreparedStatement**: Sử dụng PreparedStatement thay vì Statement trong mọi câu lệnh SQL để phòng chống **SQL Injection**.  
   * **Điểm**: **3 điểm** (khó).
 
 ---
@@ -91,4 +110,4 @@ Bạn sẽ xây dựng một ứng dụng console mô phỏng hệ thống ngân
 * **Tổng điểm tối đa**: 17.5 điểm.  
 * **Điểm vượt qua**: **12 điểm**.
 
-Bạn phải đạt được ít nhất 12 điểm để được coi là đã hoàn thành bài tập này một cách xuất sắc.
+Bạn phải đạt được ít nhất 12 điểm để được coi là đã hoàn thành bài tập này một cách xuất sắc. Hãy tập trung vào các yêu cầu "khó" (3 điểm) để đảm bảo bạn đạt được mục tiêu. Chúc bạn thành công\! 😊

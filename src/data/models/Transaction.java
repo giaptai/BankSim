@@ -1,4 +1,4 @@
-package models;
+package data.models;
 
 import java.time.LocalDateTime;
 
@@ -6,22 +6,30 @@ import resources.Type;
 
 public class Transaction {
     private String transactionId;
-    private String accountId;
+    private int accountId;
     private Type type;
     private double amount;
     private LocalDateTime timestamp;
 
-    public Transaction(String accountId, Type type, double amount){
+    public Transaction(int accountId, Type type, double amount){
         this.accountId = accountId;
         this.type = type;
         this.amount = amount;
+        this.timestamp = LocalDateTime.now();
+    }
+
+    public Transaction(int accountId, Type type, double amount, LocalDateTime timstamp){
+        this.accountId = accountId;
+        this.type = type;
+        this.amount = amount;
+        this.timestamp = timstamp;
     }
 
     public String getTransactionId() {
         return transactionId;
     }
 
-    public String getAccountId() {
+    public int getAccountId() {
         return accountId;
     }
 
