@@ -11,14 +11,22 @@ public class Transaction {
     private double amount;
     private LocalDateTime timestamp;
 
-    public Transaction(int accountId, Type type, double amount){
+    public Transaction(int accountId, Type type, double amount) {
         this.accountId = accountId;
         this.type = type;
         this.amount = amount;
         this.timestamp = LocalDateTime.now();
     }
 
-    public Transaction(int accountId, Type type, double amount, LocalDateTime timstamp){
+    public Transaction(String transactionId, int accountId, Type type, double amount, LocalDateTime timstamp) {
+        this.transactionId = transactionId;
+        this.accountId = accountId;
+        this.type = type;
+        this.amount = amount;
+        this.timestamp = timstamp;
+    }
+
+    public Transaction(int accountId, Type type, double amount, LocalDateTime timstamp) {
         this.accountId = accountId;
         this.type = type;
         this.amount = amount;
@@ -44,4 +52,11 @@ public class Transaction {
     public LocalDateTime getTimestamp() {
         return timestamp;
     }
+
+    @Override
+    public String toString() {
+        return "Transaction [transactionId=" + transactionId + ", accountId=" + accountId + ", type=" + type
+                + ", amount=" + amount + ", timestamp=" + timestamp + "]\n";
+    }
+
 }

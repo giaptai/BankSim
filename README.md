@@ -60,39 +60,6 @@ src/
 *   **JDBC**: For database interaction (as implied by `SQLException` and `DatabaseManager`).
 *   **`java.util.concurrent`**: `ExecutorService`, `Future`, `Callable` for concurrent transaction processing.
 
-## How to Run
-
-### Prerequisites
-
-1.  **Java Development Kit (JDK)**: Ensure you have JDK 11 or a newer version installed on your system.
-    You can check your Java version by running:
-    ```bash
-    java -version
-    ```
-
-### Compilation and Execution
-
-1.  **Navigate to the project root directory**:
-    Open your terminal or command prompt and go to the `d:\java-project\BankSim` directory.
-
-2.  **Compile the Java source files**:
-    Compile all `.java` files from the `src` directory.
-    ```bash
-    javac -d out src/**/*.java
-    ```
-    *(Note: This command assumes a flat output directory `out`. If you prefer to maintain the package structure, you might need a more complex `javac` command or use a build tool like Maven/Gradle.)*
-
-3.  **Run the application**:
-    Execute the compiled `App.java` class.
-    ```bash
-    java -cp out App
-    ```
-
-    The application's main menu should now be displayed in your console.
-
-### Database Configuration (if applicable)
-
-The `DatabaseManager` suggests interaction with a database. If `application.properties` contains database connection details, ensure they are correctly configured for your environment. For a simple simulation, it might use an in-memory database or a file-based approach that doesn't require external setup.
 
 ## Future Enhancements
 

@@ -9,10 +9,9 @@ public class Account {
     private int accountId;
     private String ownerName;
     private double balance;
-    private Lock accountLock;
+    private Lock accountLock = new ReentrantLock();
 
     public Account() {
-        this.accountLock = new ReentrantLock();
     }
 
     public Account(int accountId, String ownerName, double balance) {
@@ -42,33 +41,27 @@ public class Account {
         return accountLock;
     }
 
-    public void deposit(Double amount) throws MyExceptions.InvalidAmountException{
+    public void deposit(Double amount) {
         accountLock.lock();
         try {
-            if (amount < 0) {
-                throw new MyExceptions.InvalidAmountException();
-            } else {
-                this.balance += amount;
-            }
+            this.balance += amount;
         } finally {
             accountLock.unlock();
         }
     }
 
-    public void withdraw(Double amount) throws MyExceptions.InvalidAmountException, MyExceptions.InsufficientFundsException{
+    public void withdraw(Double amount) {
         accountLock.lock();
         try {
-            if (amount < 0){
-                throw new MyExceptions.InvalidAmountException();
-            }
-            if (this.balance < amount) {
-                throw new MyExceptions.InsufficientFundsException();
-            } else {
-                this.balance -= amount;
-            }
+            this.balance -= amount;
         } finally {
             accountLock.unlock();
         }
     }
 
+    @Override
+    public String toString() {
+        return "Account [" + "Account Id = " + accountId + ", Owner Name = " + ownerName + ", balance = " + balance
+                + "]";
+    }
 }

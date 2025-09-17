@@ -1,6 +1,9 @@
 package data;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.io.BufferedReader;
 import java.io.IOException;
 
 import java.sql.Connection;
@@ -15,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import data.models.Account;
 import data.models.Transaction;
@@ -24,13 +28,20 @@ import resources.annotations.Repository;
 
 @Repository
 public class DatabaseManager {
+    private static Logger LOGGER = Logger.getLogger(DatabaseManager.class.getName());
 
     public DatabaseManager() {
+        try {
+            initializeDatabase();
+        } catch (IOException | ClassNotFoundException | SQLException e) {
+            throw new RuntimeException("Failed to initialize database", e);
+        }
     }
 
     private Connection getConnection() throws IOException, ClassNotFoundException, SQLException {
         Properties props = new Properties();
-        try (InputStream inp = this.getClass().getClassLoader().getResourceAsStream("resources/application.properties")) {
+        try (InputStream inp = this.getClass().getClassLoader()
+                .getResourceAsStream("resources/application.properties")) {
             if (inp == null) {
                 throw new IOException("application.properties not found !");
             }
@@ -41,6 +52,39 @@ public class DatabaseManager {
         String user = props.getProperty("db.user");
         String password = props.getProperty("db.password");
         return DriverManager.getConnection(url, user, password);
+    }
+
+    private void initializeDatabase() throws SQLException, IOException, ClassNotFoundException {
+        StringBuilder sb = new StringBuilder();
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream("resources/ddl.sql")) {
+            if (is == null) {
+                throw new IOException("ddl.sql not found !");
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                String line = "";
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+            }
+        }
+        String ddlSql = sb.toString();
+        if (ddlSql == null || ddlSql.trim().isEmpty()) {
+            LOGGER.warning("ddl.sql is empty or null. Skipping database initialization.");
+            throw new NullPointerException();
+        }
+        try (Connection conn = getConnection()) {
+            Statement stmt = conn.createStatement();
+            String[] statements = ddlSql.split(";");
+            for (String statement : statements) {
+                String trimmedStatement = statement.trim();
+                if (!trimmedStatement.isEmpty()) {
+                    LOGGER.info("Executing DDL: "
+                            + trimmedStatement.substring(0, Math.min(trimmedStatement.length(), 100)));
+                    stmt.execute(trimmedStatement);
+                }
+            }
+            LOGGER.info("Database schema checked/created successfully from ddl.sql.");
+        }
     }
 
     public Account saveAccount(Account account) throws IOException, ClassNotFoundException, SQLException {
@@ -83,7 +127,16 @@ public class DatabaseManager {
         }
     }
 
-    // this is overloading
+    /**
+     * this is overloading
+     * 
+     * @param fromAccount
+     * @param toAccount
+     * @param amount
+     * @throws IOException
+     * @throws ClassNotFoundException
+     * @throws SQLException
+     */
     @Overloading
     public void saveTransaction(Account fromAccount, Account toAccount, double amount)
             throws IOException, ClassNotFoundException, SQLException {
@@ -91,42 +144,30 @@ public class DatabaseManager {
         String sqltrans = "INSERT INTO transactions(account_id, type, amount, timestamp) VALUES (?, ?, ?, ?)";
         try (Connection conn = getConnection()) {
             conn.setAutoCommit(false);
-
             try (PreparedStatement psAcc = conn.prepareStatement(sqlacc);
                     PreparedStatement psTrans = conn.prepareStatement(sqltrans)) {
 
-                // Update fromAccount
                 psAcc.setDouble(1, fromAccount.getBalance());
                 psAcc.setInt(2, fromAccount.getAccountId());
                 psAcc.addBatch();
 
-                // Update toAccount
                 psAcc.setDouble(1, toAccount.getBalance());
                 psAcc.setInt(2, toAccount.getAccountId());
                 psAcc.addBatch();
-
                 psAcc.executeBatch();
 
-                // Insert transaction logs (batch insert)
-                // transactions of fromAccount
-
                 Timestamp timeNow = Timestamp.valueOf(LocalDateTime.now());
-
                 psTrans.setInt(1, fromAccount.getAccountId());
                 psTrans.setString(2, Type.TRANSFER.name());
                 psTrans.setDouble(3, amount);
                 psTrans.setTimestamp(4, timeNow);
-                psTrans.addBatch();
 
-                // transactions of toAccount
                 psTrans.setInt(1, toAccount.getAccountId());
                 psTrans.setString(2, Type.TRANSFER.name());
                 psTrans.setDouble(3, amount);
                 psTrans.setTimestamp(4, timeNow);
                 psTrans.addBatch();
-
                 psTrans.executeBatch();
-
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
@@ -154,26 +195,22 @@ public class DatabaseManager {
 
     public List<Transaction> getTransactionsByAccountId(int accountId)
             throws IOException, ClassNotFoundException, SQLException {
-        String sql = "SELECT account_id, type, amount, timestamp FROM transactions WHERE account_id = ?";
+        String sql = "SELECT transaction_id, account_id, type, amount, timestamp FROM transactions WHERE account_id = ?";
         List<Transaction> transactions = new ArrayList<>();
         try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, accountId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    // String transactionId = rs.getString("transaction_id");
+                    String transactionId = rs.getString("transaction_id");
                     int accid = rs.getInt("account_id");
                     Type type = Type.valueOf(rs.getString("type"));
                     Double amount = rs.getDouble("amount");
                     LocalDateTime timestamp = rs.getTimestamp("timestamp").toLocalDateTime();
-                    Transaction transaction = new Transaction(accid, type, amount, timestamp);
+                    Transaction transaction = new Transaction(transactionId, accid, type, amount, timestamp);
                     transactions.add(transaction);
                 }
             }
         }
         return transactions;
-    }
-
-    public void closeConnection() {
-
     }
 }
