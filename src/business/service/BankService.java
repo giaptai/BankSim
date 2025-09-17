@@ -1,11 +1,11 @@
 package business.service;
 
-import java.util.Map;
 import java.util.Optional;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import data.DatabaseManager;
 import data.models.Account;
@@ -29,18 +30,18 @@ import resources.annotations.Service;
 
 @Service
 public class BankService {
-    private Map<Integer, Account> accounts;
     private ExecutorService transactionExecutor;
     private DatabaseManager databaseManager;
+    private final Map<Integer, Lock> accountLocks = new ConcurrentHashMap<>();
 
     public BankService(DatabaseManager databaseManager) {
-        accounts = new ConcurrentHashMap<>();
         transactionExecutor = Executors.newFixedThreadPool(13);
         this.databaseManager = databaseManager;
     }
 
     /**
      * Open Account
+     * 
      * @param ownName
      * @param initialBalance
      * @return
@@ -56,11 +57,7 @@ public class BankService {
                     @Override
                     public Account call() throws IOException, ClassNotFoundException, SQLException {
                         Account account = new Account(ownName, initialBalance);
-                        Account saved = databaseManager.saveAccount(account);
-                        if (saved != null) {
-                            accounts.put(saved.getAccountId(), saved);
-                        }
-                        return saved;
+                        return databaseManager.saveAccount(account);
                     }
                 });
 
@@ -78,19 +75,18 @@ public class BankService {
         }
     }
 
-    public void deposit(Integer accountId, double amount) throws InterruptedException, RuntimeException {
-        Future<?> fu = transactionExecutor.submit(
+    public Future<?> deposit(Integer accountId, double amount) throws InterruptedException, RuntimeException {
+        return transactionExecutor.submit(
                 () -> {
                     try {
-                        if (amount < 0) {
+                        System.out.println(Thread.currentThread().getName() + " deposited " + amount);
+                        if (amount <= 0) {
                             throw new InvalidAmountException();
                         }
                         Account account = databaseManager.getAccountById(accountId);
                         if (account != null) {
-                            account.deposit(amount);
-                            databaseManager.updateAccount(account);
+                            databaseManager.adjustAccountBalance(accountId, amount);
                             databaseManager.saveTransaction(new Transaction(accountId, Type.DEPOSIT, amount));
-                            accounts.put(account.getAccountId(), account);
                         } else {
                             throw new AccountNotFoundException();
                         }
@@ -100,31 +96,32 @@ public class BankService {
                         throw new RuntimeException(e);
                     }
                 });
-        try {
-            fu.get();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof InvalidAmountException) {
-                throw (InvalidAmountException) cause;
-            }
-            if (cause instanceof AccountNotFoundException) {
-                throw (AccountNotFoundException) cause;
-            }
-            if (cause instanceof RuntimeException) {
-                throw (RuntimeException) cause;
-            }
-            throw new RuntimeException("Unexpacted error during deposit: ", cause);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw e;
-        }
+        // try {
+        // fu.get();
+        // } catch (ExecutionException e) {
+        // Throwable cause = e.getCause();
+        // if (cause instanceof InvalidAmountException) {
+        // throw (InvalidAmountException) cause;
+        // }
+        // if (cause instanceof AccountNotFoundException) {
+        // throw (AccountNotFoundException) cause;
+        // }
+        // if (cause instanceof RuntimeException) {
+        // throw (RuntimeException) cause;
+        // }
+        // throw new RuntimeException("Unexpacted error during deposit: ", cause);
+        // } catch (InterruptedException e) {
+        // Thread.currentThread().interrupt();
+        // throw e;
+        // }
     }
 
-    public void withdraw(Integer accountId, double amount) throws InterruptedException, RuntimeException {
+    public Future<?> withdraw(Integer accountId, double amount) throws InterruptedException, RuntimeException {
         Future<?> fu = transactionExecutor.submit(
                 () -> {
                     try {
-                        if (amount < 0) {
+                        System.out.println(Thread.currentThread().getName() + " withdrawed " + amount);
+                        if (amount <= 0) {
                             throw new InvalidAmountException();
                         }
 
@@ -133,10 +130,8 @@ public class BankService {
                             if (account.getBalance() < amount) {
                                 throw new InsufficientFundsException();
                             }
-                            account.withdraw(amount);
-                            databaseManager.updateAccount(account);
+                            databaseManager.adjustAccountBalance(accountId, amount * -1);
                             databaseManager.saveTransaction(new Transaction(accountId, Type.WITHDRAW, amount));
-                            accounts.put(account.getAccountId(), account);
                         } else {
                             throw new AccountNotFoundException();
                         }
@@ -146,27 +141,28 @@ public class BankService {
                         throw new RuntimeException(e);
                     }
                 });
-        try {
-            fu.get();
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof InsufficientFundsException) {
-                throw (InsufficientFundsException) cause;
-            }
-            if (cause instanceof AccountNotFoundException) {
-                throw (AccountNotFoundException) cause;
-            }
-            if (cause instanceof InvalidAmountException) {
-                throw (InvalidAmountException) cause;
-            }
-            if (cause instanceof RuntimeException) {
-                throw (RuntimeException) cause;
-            }
-            throw new RuntimeException("Unexpacted error during deposit: ", cause);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw e;
-        }
+        return fu;
+        // try {
+        // fu.get();
+        // } catch (ExecutionException e) {
+        // Throwable cause = e.getCause();
+        // if (cause instanceof InsufficientFundsException) {
+        // throw (InsufficientFundsException) cause;
+        // }
+        // if (cause instanceof AccountNotFoundException) {
+        // throw (AccountNotFoundException) cause;
+        // }
+        // if (cause instanceof InvalidAmountException) {
+        // throw (InvalidAmountException) cause;
+        // }
+        // if (cause instanceof RuntimeException) {
+        // throw (RuntimeException) cause;
+        // }
+        // throw new RuntimeException("Unexpacted error during deposit: ", cause);
+        // } catch (InterruptedException e) {
+        // Thread.currentThread().interrupt();
+        // throw e;
+        // }
     }
 
     public void transfer(int fromAccountId, int toAccountId, double amount)
@@ -174,41 +170,46 @@ public class BankService {
         Future<?> fu = transactionExecutor.submit(
                 () -> {
                     try {
-                        if (amount < 0) {
+                        if (amount <= 0) {
                             throw new InvalidAmountException();
                         }
-                        Account fromAccount = databaseManager.getAccountById(fromAccountId);
-                        Account toAccount = databaseManager.getAccountById(toAccountId);
-
-                        if (fromAccount == null || toAccount == null) {
-                            throw new AccountNotFoundException();
+                        if (fromAccountId == toAccountId) {
+                            throw new InvalidAmountException("Cannot transfer to the same account.");
                         }
+
+                        Lock fromLock = accountLocks.computeIfAbsent(fromAccountId, k -> new ReentrantLock());
+                        Lock toLock = accountLocks.computeIfAbsent(toAccountId, k -> new ReentrantLock());
 
                         // Lock theo thứ tự để tránh deadlock
                         Lock firstLock, secondLock;
-
-                        if (fromAccount.getAccountId() < toAccount.getAccountId()) {
-                            firstLock = fromAccount.getAccountLock();
-                            secondLock = toAccount.getAccountLock();
+                        if (fromAccountId < toAccountId) {
+                            firstLock = fromLock;
+                            secondLock = toLock;
                         } else {
-                            firstLock = toAccount.getAccountLock();
-                            secondLock = fromAccount.getAccountLock();
+                            firstLock = toLock;
+                            secondLock = fromLock;
                         }
 
                         firstLock.lock();
-                        secondLock.lock();
-
                         try {
-                            if (fromAccount.getBalance() < amount) {
-                                throw new InsufficientFundsException();
+                            secondLock.lock();
+                            try {
+                                // Luôn đọc tài khoản từ DB để kiểm tra sự tồn tại và số dư mới nhất
+                                Account fromAccount = databaseManager.getAccountById(fromAccountId);
+                                Account toAccount = databaseManager.getAccountById(toAccountId);
+
+                                if (fromAccount == null || toAccount == null) {
+                                    throw new AccountNotFoundException();
+                                }
+
+                                if (fromAccount.getBalance() < amount) {
+                                    throw new InsufficientFundsException();
+                                }
+                                databaseManager.saveTransaction(fromAccount, toAccount, amount);
+                            } finally {
+                                secondLock.unlock();
                             }
-                            fromAccount.withdraw(amount);
-                            toAccount.deposit(amount);
-                            databaseManager.saveTransaction(fromAccount, toAccount, amount);
-                            accounts.put(fromAccount.getAccountId(), fromAccount);
-                            accounts.put(toAccount.getAccountId(), toAccount);
                         } finally {
-                            secondLock.unlock();
                             firstLock.unlock();
                         }
                     } catch (AccountNotFoundException | InsufficientFundsException | InvalidAmountException e) {
@@ -265,7 +266,7 @@ public class BankService {
         } catch (InterruptedException e) {
             transactionExecutor.shutdownNow(); // Buộc tắt nếu bị gián đoạn
             Thread.currentThread().interrupt(); // Đặt lại trạng thái ngắt
-            System.err.println("BankService shutdown interrupted: " + e.getMessage());
+            System.out.println("BankService shutdown interrupted: " + e.getMessage());
         }
     }
 }

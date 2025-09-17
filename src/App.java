@@ -16,14 +16,14 @@ public class App {
         BankService bankService = new BankService(databaseManager);
 
         // 3. Initial Presentation layer
-        // Menu menu = new Menu();
-        // BankController bankController = new BankController(bankService, menu);
+        Menu menu = new Menu();
+        BankController bankController = new BankController(bankService, menu);
 
         // start
-        // bankController.start();
+        bankController.start();
 
-        SwingBankController swingController = new SwingBankController(bankService);
-        BankSwingGUI bankSwingGUI = new BankSwingGUI(swingController);
-        SwingUtilities.invokeLater(() -> bankSwingGUI.setVisible(true));
+        // SwingBankController swingController = new SwingBankController(bankService);
+        // BankSwingGUI bankSwingGUI = new BankSwingGUI(swingController);
+        // SwingUtilities.invokeLater(() -> bankSwingGUI.setVisible(true));
     }
 }

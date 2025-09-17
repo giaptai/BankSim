@@ -61,11 +61,17 @@ src/
 *   **`java.util.concurrent`**: `ExecutorService`, `Future`, `Callable` for concurrent transaction processing.
 
 
-## Future Enhancements
+## Demo Images tests
+### Deposit (30 times deposit)
+- ![](/images/deposit.png)
+### Withdraw (30 times withdraw)
+- ![](/images/withdraw.png)
+### Tranfer (10 times tranfer)
+- ![](/images/tranfer.png)
 
-*   Implement a more robust database solution (e.g., H2, SQLite, PostgreSQL) with proper connection pooling.
+<!-- *   Implement a more robust database solution (e.g., H2, SQLite, PostgreSQL) with proper connection pooling.
 *   Add unit and integration tests for all layers.
 *   Improve the console UI or develop a graphical user interface (GUI).
 *   Implement user authentication and authorization.
 *   Add more complex banking features (e.g., loan management, interest calculation).
-*   Utilize a build automation tool like Maven or Gradle for easier dependency management and project building.
+*   Utilize a build automation tool like Maven or Gradle for easier dependency management and project building. -->

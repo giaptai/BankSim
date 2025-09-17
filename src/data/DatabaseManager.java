@@ -29,17 +29,20 @@ import resources.annotations.Repository;
 @Repository
 public class DatabaseManager {
     private static Logger LOGGER = Logger.getLogger(DatabaseManager.class.getName());
+    private Properties props;
+    private Connection conn;
 
     public DatabaseManager() {
         try {
+            loadProperties();
             initializeDatabase();
         } catch (IOException | ClassNotFoundException | SQLException e) {
             throw new RuntimeException("Failed to initialize database", e);
         }
     }
 
-    private Connection getConnection() throws IOException, ClassNotFoundException, SQLException {
-        Properties props = new Properties();
+    private void loadProperties() throws IOException {
+        props = new Properties();
         try (InputStream inp = this.getClass().getClassLoader()
                 .getResourceAsStream("resources/application.properties")) {
             if (inp == null) {
@@ -47,6 +50,20 @@ public class DatabaseManager {
             }
             props.load(inp);
         }
+    }
+
+    // public void openConnection() throws IOException, ClassNotFoundException, SQLException {
+    //     if (conn == null || conn.isClosed()) {
+    //         Class.forName(props.getProperty("db.driver"));
+    //         String url = props.getProperty("db.url");
+    //         String user = props.getProperty("db.user");
+    //         String password = props.getProperty("db.password");
+    //         conn = DriverManager.getConnection(url, user, password);
+    //         conn.setAutoCommit(false); // nếu muốn quản lý transaction thủ công
+    //     }
+    // }
+
+    private Connection getConnection() throws IOException, ClassNotFoundException, SQLException {
         Class.forName(props.getProperty("db.driver")); // optional
         String url = props.getProperty("db.url");
         String user = props.getProperty("db.user");
@@ -70,7 +87,7 @@ public class DatabaseManager {
         String ddlSql = sb.toString();
         if (ddlSql == null || ddlSql.trim().isEmpty()) {
             LOGGER.warning("ddl.sql is empty or null. Skipping database initialization.");
-            throw new NullPointerException();
+            return;
         }
         try (Connection conn = getConnection()) {
             Statement stmt = conn.createStatement();
@@ -106,7 +123,7 @@ public class DatabaseManager {
     }
 
     public void updateAccount(Account account) throws IOException, ClassNotFoundException, SQLException {
-        String sql = "UPDATE account SET owner_name=?, balance=?  WHERE account_id =?";
+        String sql = "UPDATE account SET owner_name=?, balance = ?  WHERE account_id =?";
         try (Connection conn = getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, account.getOwnerName());
@@ -116,14 +133,43 @@ public class DatabaseManager {
         }
     }
 
+    public void adjustAccountBalance(int accountId, double amount)
+            throws IOException, ClassNotFoundException, SQLException {
+        String sql = "UPDATE account SET balance = balance + ?  WHERE account_id =?";
+        try (Connection conn = getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            try {
+                conn.setAutoCommit(false);
+                ps.setDouble(1, amount);
+                ps.setInt(2, accountId);
+                ps.addBatch();
+                ps.executeBatch();
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    }
+
     public void saveTransaction(Transaction transaction) throws IOException, ClassNotFoundException, SQLException {
         String sql = "INSERT INTO transactions(account_id, type, amount, timestamp) VALUES (?, ?, ?, ?)";
         try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, transaction.getAccountId());
-            ps.setString(2, transaction.getType().name());
-            ps.setDouble(3, transaction.getAmount());
-            ps.setTimestamp(4, Timestamp.valueOf(transaction.getTimestamp()));
-            ps.executeUpdate();
+            try {
+                conn.setAutoCommit(false);
+                ps.setInt(1, transaction.getAccountId());
+                ps.setString(2, transaction.getType().name());
+                ps.setDouble(3, transaction.getAmount());
+                ps.setTimestamp(4, Timestamp.valueOf(transaction.getTimestamp()));
+                ps.addBatch();
+                ps.executeBatch();
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+            } finally {
+                conn.setAutoCommit(true);
+            }
         }
     }
 
@@ -140,18 +186,18 @@ public class DatabaseManager {
     @Overloading
     public void saveTransaction(Account fromAccount, Account toAccount, double amount)
             throws IOException, ClassNotFoundException, SQLException {
-        String sqlacc = "UPDATE account SET balance=? WHERE account_id = ?";
+        String sqlacc = "UPDATE account SET balance= balance + ? WHERE account_id = ?";
         String sqltrans = "INSERT INTO transactions(account_id, type, amount, timestamp) VALUES (?, ?, ?, ?)";
         try (Connection conn = getConnection()) {
             conn.setAutoCommit(false);
             try (PreparedStatement psAcc = conn.prepareStatement(sqlacc);
                     PreparedStatement psTrans = conn.prepareStatement(sqltrans)) {
 
-                psAcc.setDouble(1, fromAccount.getBalance());
+                psAcc.setDouble(1, amount * -1);
                 psAcc.setInt(2, fromAccount.getAccountId());
                 psAcc.addBatch();
 
-                psAcc.setDouble(1, toAccount.getBalance());
+                psAcc.setDouble(1, amount);
                 psAcc.setInt(2, toAccount.getAccountId());
                 psAcc.addBatch();
                 psAcc.executeBatch();
@@ -161,17 +207,21 @@ public class DatabaseManager {
                 psTrans.setString(2, Type.TRANSFER.name());
                 psTrans.setDouble(3, amount);
                 psTrans.setTimestamp(4, timeNow);
+                psTrans.addBatch();
 
                 psTrans.setInt(1, toAccount.getAccountId());
                 psTrans.setString(2, Type.TRANSFER.name());
                 psTrans.setDouble(3, amount);
                 psTrans.setTimestamp(4, timeNow);
                 psTrans.addBatch();
+
                 psTrans.executeBatch();
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
+            } finally {
+                conn.setAutoCommit(true);
             }
         }
     }
@@ -212,5 +262,15 @@ public class DatabaseManager {
             }
         }
         return transactions;
+    }
+
+    public void closeConnection() {
+        if (conn != null) {
+            try {
+                conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

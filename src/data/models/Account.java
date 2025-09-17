@@ -9,7 +9,7 @@ public class Account {
     private int accountId;
     private String ownerName;
     private double balance;
-    private Lock accountLock = new ReentrantLock();
+    // private Lock accountLock = new ReentrantLock();
 
     public Account() {
     }
@@ -37,25 +37,25 @@ public class Account {
         return balance;
     }
 
-    public Lock getAccountLock() {
-        return accountLock;
-    }
+    // public Lock getAccountLock() {
+    //     return accountLock;
+    // }
 
     public void deposit(Double amount) {
-        accountLock.lock();
+        // accountLock.lock();
         try {
             this.balance += amount;
         } finally {
-            accountLock.unlock();
+            // accountLock.unlock();
         }
     }
 
     public void withdraw(Double amount) {
-        accountLock.lock();
+        // accountLock.lock();
         try {
             this.balance -= amount;
         } finally {
-            accountLock.unlock();
+            // accountLock.unlock();
         }
     }
 

@@ -44,7 +44,7 @@ public class Menu {
     }
 
     public void displayErrorMessage(String message) {
-        System.err.println("Error: " + message);
+        System.out.println("Error: " + message);
     }
 
     public void displayAccountDetails(String details) {
@@ -74,7 +74,7 @@ public class Menu {
     public int getMenuChoice() {
         System.out.print("Enter your choice: ");
         while (!sc.hasNextInt()) {
-            System.err.println("Wrong input");
+            System.out.println("Wrong input");
             sc.next();
             System.out.print("Enter your choice: ");
         }
@@ -102,7 +102,7 @@ public class Menu {
     public double getInitialBalanceInput() {
         System.out.print("Enter inital balance: ");
         while (!sc.hasNextDouble()) {
-            System.err.println("Wrong input");
+            System.out.println("Wrong input");
             sc.next();
             System.out.print("Enter inital balance: ");
         }
@@ -120,7 +120,7 @@ public class Menu {
     public int getAccountIdInput() {
         System.out.print("Enter account Id: ");
         while (!sc.hasNextInt()) {
-            System.err.println("Wrong input");
+            System.out.println("Wrong input");
             sc.next();
             System.out.print("Enter account Id: ");
         }
@@ -139,7 +139,7 @@ public class Menu {
     public double getAmountInput() {
         System.out.print("Enter amount: ");
         while (!sc.hasNextDouble()) {
-            System.err.println("Wrong input");
+            System.out.println("Wrong input");
             sc.next();
             System.out.print("Enter amount: ");
         }
@@ -156,7 +156,7 @@ public class Menu {
     public int getFromAccountIdInput() {
         System.out.print("Enter from account Id: ");
         while (!sc.hasNextInt()) {
-            System.err.println("Wrong input");
+            System.out.println("Wrong input");
             sc.next();
             System.out.print("Enter from account Id: ");
         }
@@ -174,7 +174,7 @@ public class Menu {
     public int getToAccountIdInput() {
         System.out.print("Enter to account Id: ");
         while (!sc.hasNextInt()) {
-            System.err.println("Wrong input");
+            System.out.println("Wrong input");
             sc.next();
             System.out.print("Enter to account Id: ");
         }
