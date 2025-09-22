@@ -3,6 +3,7 @@ package business.service;
 import java.util.Optional;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import data.DatabaseManager;
 import data.models.Account;
 import data.models.Transaction;
+import presentation.ui.ThreadTrackerGUI;
 
 import java.util.concurrent.TimeUnit;
 
@@ -33,10 +35,18 @@ public class BankService {
     private ExecutorService transactionExecutor;
     private DatabaseManager databaseManager;
     private final Map<Integer, Lock> accountLocks = new ConcurrentHashMap<>();
+    private ThreadTrackerGUI trackerGUI;
+    private final int MAX_THREADS = 13;
 
     public BankService(DatabaseManager databaseManager) {
-        transactionExecutor = Executors.newFixedThreadPool(13);
+        transactionExecutor = Executors.newFixedThreadPool(MAX_THREADS);
         this.databaseManager = databaseManager;
+    }
+
+    public BankService(DatabaseManager databaseManager, ThreadTrackerGUI trackerGUI) {
+        transactionExecutor = Executors.newFixedThreadPool(MAX_THREADS);
+        this.databaseManager = databaseManager;
+        this.trackerGUI = trackerGUI;
     }
 
     /**
@@ -78,6 +88,35 @@ public class BankService {
     public Future<?> deposit(Integer accountId, double amount) throws InterruptedException, RuntimeException {
         return transactionExecutor.submit(
                 () -> {
+                    String currentThreadName = Thread.currentThread().getName();
+                    LocalDateTime startTime = LocalDateTime.now();
+                    double initialBalance = 0;
+                    double predictedBalance = 0;
+
+                    try {
+                        Account account = databaseManager.getAccountById(accountId);
+                        if (account != null) {
+                            initialBalance = account.getBalance();
+                            predictedBalance = initialBalance + amount;
+                        }
+                    } catch (IOException | ClassNotFoundException | SQLException e) {
+                        System.err.println("Error getting initial balance for deposit: " + e.getMessage());
+                    }
+
+                    if (trackerGUI != null) {
+                        trackerGUI.updateThreadRow(
+                                currentThreadName,
+                                Type.DEPOSIT.name(),
+                                String.valueOf(accountId),
+                                "N/A",
+                                amount,
+                                predictedBalance,
+                                -1.0, // Actual balance chưa có
+                                startTime,
+                                "Pending",
+                                "");
+                    }
+
                     try {
                         System.out.println(Thread.currentThread().getName() + " deposited " + amount);
                         if (amount <= 0) {
@@ -87,12 +126,53 @@ public class BankService {
                         if (account != null) {
                             databaseManager.adjustAccountBalance(accountId, amount);
                             databaseManager.saveTransaction(new Transaction(accountId, Type.DEPOSIT, amount));
+                            // Lấy số dư thực tế sau khi giao dịch hoàn tất
+                            Account finalAccount = databaseManager.getAccountById(accountId);
+                            if (trackerGUI != null && finalAccount != null) {
+                                trackerGUI.updateThreadRow(
+                                        currentThreadName,
+                                        Type.DEPOSIT.name(),
+                                        String.valueOf(accountId),
+                                        "N/A",
+                                        amount,
+                                        predictedBalance,
+                                        finalAccount.getBalance(),
+                                        startTime,
+                                        "Completed",
+                                        "");
+                            }
                         } else {
                             throw new AccountNotFoundException();
                         }
                     } catch (InvalidAmountException | AccountNotFoundException e) {
+                        if (trackerGUI != null) {
+                            trackerGUI.updateThreadRow(
+                                    currentThreadName,
+                                    Type.DEPOSIT.name(),
+                                    String.valueOf(accountId),
+                                    "N/A",
+                                    amount,
+                                    predictedBalance,
+                                    -1.0, // Không có số dư thực tế nếu thất bại
+                                    startTime,
+                                    "Failed",
+                                    e.getMessage());
+                        }
                         throw e;
                     } catch (IOException | ClassNotFoundException | SQLException e) {
+                        if (trackerGUI != null) {
+                            trackerGUI.updateThreadRow(
+                                    currentThreadName,
+                                    Type.DEPOSIT.name(),
+                                    String.valueOf(accountId),
+                                    "N/A",
+                                    amount,
+                                    predictedBalance,
+                                    -1.0, // Không có số dư thực tế nếu thất bại
+                                    startTime,
+                                    "Failed",
+                                    e.getMessage());
+                        }
                         throw new RuntimeException(e);
                     }
                 });

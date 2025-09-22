@@ -52,17 +52,6 @@ public class DatabaseManager {
         }
     }
 
-    // public void openConnection() throws IOException, ClassNotFoundException, SQLException {
-    //     if (conn == null || conn.isClosed()) {
-    //         Class.forName(props.getProperty("db.driver"));
-    //         String url = props.getProperty("db.url");
-    //         String user = props.getProperty("db.user");
-    //         String password = props.getProperty("db.password");
-    //         conn = DriverManager.getConnection(url, user, password);
-    //         conn.setAutoCommit(false); // nếu muốn quản lý transaction thủ công
-    //     }
-    // }
-
     private Connection getConnection() throws IOException, ClassNotFoundException, SQLException {
         Class.forName(props.getProperty("db.driver")); // optional
         String url = props.getProperty("db.url");
@@ -147,6 +136,7 @@ public class DatabaseManager {
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
+                LOGGER.warning(e.getMessage());
             } finally {
                 conn.setAutoCommit(true);
             }
@@ -167,6 +157,7 @@ public class DatabaseManager {
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
+                LOGGER.warning(e.getMessage());
             } finally {
                 conn.setAutoCommit(true);
             }
@@ -219,6 +210,7 @@ public class DatabaseManager {
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
+                LOGGER.warning(e.getMessage());
                 throw e;
             } finally {
                 conn.setAutoCommit(true);
@@ -269,7 +261,7 @@ public class DatabaseManager {
             try {
                 conn.close();
             } catch (SQLException e) {
-                e.printStackTrace();
+                LOGGER.warning(e.getMessage());
             }
         }
     }
