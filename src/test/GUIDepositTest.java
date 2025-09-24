@@ -1,71 +1,97 @@
 package test;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.LogManager;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+import java.util.logging.Formatter;
 
-import javax.swing.SwingUtilities;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 
 import business.service.BankService;
 import data.DatabaseManager;
 import presentation.ui.ThreadTrackerGUI;
 
 public class GUIDepositTest {
+    private static Logger LOGGER = Logger.getLogger(GUIDepositTest.class.getName());
+
     public static void main(String[] args) {
+
+        try (InputStream inp = GUIDepositTest.class.getClassLoader()
+                .getResourceAsStream("resources/logging.properties")) {
+            if (inp != null) {
+                // download all configurations
+                LogManager.getLogManager().readConfiguration(inp);
+                LOGGER.info("Logging configuration loaded successfully.");
+            } else {
+                System.err.println("WARNING: logging.properties not found. Using default logging configuration.");
+            }
+        } catch (IOException e) {
+            System.err.println("WARNING: Could not load logging.properties: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        try {
+            Files.createDirectories(Paths.get("logs"));
+            String datePattern = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+            String logFileName = "logs/banksim_" + datePattern + "_%g.log";
+            FileHandler fileHandler = new FileHandler(logFileName, 5 * 1024 * 1024, 5, true); // 5MB, 5 files, append
+            fileHandler.setLevel(Level.ALL);
+            Formatter formatter = new SimpleFormatter();
+            fileHandler.setFormatter(formatter);
+            Logger rootLogger = Logger.getLogger(""); // Logger gốc
+            rootLogger.addHandler(fileHandler);
+            LOGGER.info("Date-based FileHandler configured successfully.");
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Error setting up date-based FileHandler: " + e.getMessage(), e);
+        }
+
         DatabaseManager databaseManager = new DatabaseManager();
-        
-        // Lấy số luồng tối đa từ BankService để truyền vào ThreadTrackerGUI
-        // Chúng ta cần một cách để lấy MAX_THREADS mà không cần khởi tạo BankService 2 lần
-        // Hoặc đơn giản là hardcode 13 ở đây nếu biết trước
-        final int MAX_THREADS = 13; 
-        ThreadTrackerGUI trackerGUI = new ThreadTrackerGUI(MAX_THREADS); // Truyền MAX_THREADS vào constructor
-        SwingUtilities.invokeLater(() -> trackerGUI.setVisible(true));
-        
+
+        ThreadTrackerGUI trackerGUI = new ThreadTrackerGUI();
+        trackerGUI.setVisible(true);
         BankService bankService = new BankService(databaseManager, trackerGUI);
 
-        int accountIdTest = 1; // ID tài khoản để kiểm thử
-        double depositAmountPerThread = 10; // Số tiền gửi mỗi luồng
-        int numberOfTransactions = 300; // Tổng số giao dịch muốn thực hiện
+        int accountTestId = 1;
+        int amountPerTransaction = 10;
+        int totalTransaction = 1000;
 
         List<Future<?>> futures = new ArrayList<>();
+
         try {
-            System.out.println(
-                    "Submitting " + numberOfTransactions + " Deposit transactions to account " + accountIdTest + "...");
-            for (int i = 0; i < numberOfTransactions; i++) {
-                futures.add(bankService.deposit(accountIdTest, depositAmountPerThread));
+            for (int i = 0; i < totalTransaction; i++) {
+                futures.add(
+                        bankService.deposit(accountTestId, amountPerTransaction));
             }
 
-            System.out.println("All deposit transactions submitted. Waiting for them to complete...");
-
-            // Chờ tất cả các giao dịch hoàn thành
-            for (Future<?> f : futures) {
+            //
+            LOGGER.info("Submitted " + totalTransaction + " deposit tasks. Waiting for completion...");
+            for (Future<?> future : futures) {
                 try {
-                    f.get(); // Chờ từng giao dịch hoàn thành
-                } catch (ExecutionException e) {
-                    System.err.println("Transaction failed: " + e.getCause().getMessage());
+                    future.get();
+                } catch (Exception e) {
+                    LOGGER.warning("Error in one of the deposit tasks: " + e.getMessage());
                 }
             }
-            System.out.println("All deposit transactions completed. Check Thread Tracker GUI.");
+            LOGGER.info("All deposit tasks completed.");
+            //
 
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred during test setup: " + e.getMessage());
-        }finally{
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.warning("Test interrupted: " + e.getMessage());
+        } catch (RuntimeException e) {
+            LOGGER.warning("Text RuntimeException: " + e.getMessage());
+        } finally {
             bankService.close();
-            try {
-                // Đợi một chút để GUI có thời gian cập nhật trạng thái cuối cùng
-                TimeUnit.SECONDS.sleep(2); 
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            // Sau khi tất cả hoàn thành, bạn có thể muốn xóa các hàng để hiển thị "Idle"
-            // Hoặc để nguyên trạng thái cuối cùng của từng luồng.
-            // Nếu muốn xóa:
-            // for (int i = 0; i < MAX_THREADS; i++) {
-            //     String threadName = "pool-1-thread-" + (i + 1); // Giả định tên luồng
-            //     trackerGUI.clearThreadRow(threadName);
-            // }
         }
     }
 }

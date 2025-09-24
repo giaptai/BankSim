@@ -1,36 +1,45 @@
 package presentation.ui;
 
+import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
+import resources.Type;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class ThreadTrackerGUI extends JFrame {
+    private static final Logger LOGGER = Logger.getLogger(ThreadTrackerGUI.class.getName());
     private DefaultTableModel model;
     // Map để lưu trữ chỉ số hàng của từng luồng worker dựa trên Thread.getName()
     private Map<String, Integer> threadRowMap;
     // Map để lưu trữ tổng số giao dịch đã xử lý bởi mỗi luồng
     private Map<String, Integer> threadTransactionCount;
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private final int maxThreads;
+    private final int maxThread = 100;
 
-    public ThreadTrackerGUI(int maxThreads) {
-        this.maxThreads = maxThreads;
+    public ThreadTrackerGUI() {
         setTitle("BankSim - Thread Tracker");
-        setSize(1200, 550);
+        setSize(1200, 750);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -39,13 +48,13 @@ public class ThreadTrackerGUI extends JFrame {
         initComponents();
     }
 
-    public ThreadTrackerGUI() {
-        this(13);
-    }
-
+    /**
+     * 
+     */
     public void initComponents() {
         String[] colName = { "Thread", "Type", "Source account", "Target account",
-                "Transaction amount", "Predicted balance", "Actual balance", "Start at", "Status", "Total transaction"
+                "Transaction amount", "Predicted balance", "Actual balance", "Start at", "Status", "Total transaction",
+                "Log"
         };
         this.model = new DefaultTableModel(colName, 0) {
             @Override
@@ -70,94 +79,114 @@ public class ThreadTrackerGUI extends JFrame {
         header.setForeground(Color.WHITE);
 
         JScrollPane scrollPane = new JScrollPane(table);
+        add(jPanel(), BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
     }
 
+    private JPanel jPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new FlowLayout());
+        panel.setPreferredSize(new Dimension(WIDTH, 45));
+
+        JLabel labelId = new JLabel("Account Id: ");
+        JTextField tfName = new JTextField(15);
+        JButton btn = new JButton("OK");
+
+        JLabel labelAmount = new JLabel("Amount: ");
+        JTextField tfAmount = new JTextField(15);
+
+        String[] options = Arrays.asList(resources.Type.values()).stream().map(Enum::name).toArray(String[]::new);
+        JComboBox<String> boxType = new JComboBox<>(options);
+        boxType.setPreferredSize(new Dimension(100, boxType.getPreferredSize().height));
+
+        Integer[] numTransaction = {1000, 10000, 100000, 500000};
+        JComboBox<Integer> boxTrans = new JComboBox<>(numTransaction);
+        boxTrans.setPreferredSize(new Dimension(100, boxTrans.getPreferredSize().height));
+
+
+        panel.add(labelId);
+        panel.add(tfName);
+        panel.add(labelAmount);
+        panel.add(tfAmount);
+        panel.add(boxType);
+        panel.add(boxTrans);
+
+        panel.add(btn);
+
+        return panel;
+    }
+
     /**
-     * Cập nhật hoặc thêm một hàng cho một luồng worker cụ thể.
-     * Nếu luồng đã có hàng, cập nhật hàng đó. Nếu chưa, thêm hàng mới (tối đa
-     * maxThreads).
-     *
-     * @param threadId          ID của luồng worker (ví dụ: "pool-1-thread-1").
-     * @param type              Loại giao dịch (DEPOSIT, WITHDRAW, TRANSFER).
-     * @param sourceAccountId   ID tài khoản nguồn (hoặc "N/A").
-     * @param targetAccountId   ID tài khoản đích (hoặc "N/A").
-     * @param transactionAmount Số tiền giao dịch.
-     * @param predictedBalance  Số dư dự kiến sau giao dịch.
-     * @param actualBalance     Số dư thực tế sau giao dịch (hoặc "N/A" nếu chưa
-     *                          hoàn thành).
-     * @param startAt           Thời gian bắt đầu giao dịch.
-     * @param status            Trạng thái của giao dịch (Pending, Completed,
-     *                          Failed).
-     * @param message           Thông báo bổ sung.
+     * 
+     * @param threadId
+     * @param type
+     * @param sourceAccountId
+     * @param targetAccountId
+     * @param amount
+     * @param predictedBalance
+     * @param actualBalance
+     * @param startAt
+     * @param status
+     * @param message
      */
-    public void updateThreadRow(String threadId, String type, String sourceAccountId, String targetAccountId,
-            double transactionAmount, double predictedBalance, double actualBalance,
-            LocalDateTime startAt, String status, String message) {
+    public void updateThreadRow(
+            String threadId, String type, String sourceAccountId, String targetAccountId, double amount,
+            double predictedBalance, double actualBalance, LocalDateTime startAt, String status, String message) {
+
         SwingUtilities.invokeLater(() -> {
-            Integer rowIndex = threadRowMap.get(threadId);
+            Integer rowIdx = threadRowMap.get(threadId);
 
-            // Tăng bộ đếm giao dịch cho luồng này nếu trạng thái là Completed/Failed
             if ("Completed".equals(status) || "Failed".equals(status)) {
-                threadTransactionCount.merge(threadId, 1, Integer::sum);
+                threadTransactionCount.merge(threadId, 1, (oldVal, newVal) -> oldVal + newVal);
             }
-            int currentTransactionCount = threadTransactionCount.getOrDefault(threadId, 0);
 
+            int currTransactionCount = threadTransactionCount.getOrDefault(threadId, 0);
             Object[] rowData = {
                     threadId,
                     type,
                     sourceAccountId,
                     targetAccountId,
-                    String.format("%.2f", transactionAmount),
+                    String.format("%.2f", amount),
                     String.format("%.2f", predictedBalance),
-                    (actualBalance == -1.0) ? "N/A" : String.format("%.2f", actualBalance), // -1.0 là giá trị mặc định
-                                                                                            // cho N/A
+                    (actualBalance == -1.0) ? "N/A" : String.format("%.2f", actualBalance),
                     startAt != null ? startAt.format(FORMATTER) : "N/A",
                     status,
-                    currentTransactionCount
+                    currTransactionCount,
+                    message != null && !message.isEmpty() ? " (" + message + ") " : ""
             };
-
-            if (rowIndex == null) {
-                // Nếu luồng chưa có hàng và chưa đạt đến số lượng hàng tối đa
-                if (model.getRowCount() < maxThreads) {
+            if (rowIdx == null) {
+                if (model.getRowCount() < maxThread) {
                     model.addRow(rowData);
                     threadRowMap.put(threadId, model.getRowCount() - 1);
                 } else {
-                    // Đây là trường hợp không mong muốn nếu ExecutorService hoạt động đúng
-                    // Có thể log lỗi hoặc bỏ qua
-                    System.err.println("Attempted to add more rows than maxThreads for thread: " + threadId);
+                    LOGGER.warning("Attempted to add more rows than maxThreads for thread: " + threadId);
                 }
             } else {
-                // Cập nhật hàng hiện có
                 for (int i = 0; i < rowData.length; i++) {
-                    model.setValueAt(rowData[i], rowIndex, i);
+                    model.setValueAt(rowData[i], rowIdx, i);
                 }
             }
         });
     }
 
     /**
-     * Xóa thông tin giao dịch khỏi một hàng của luồng, chuẩn bị cho tác vụ mới.
-     * Thường gọi khi một luồng hoàn thành tác vụ và sẵn sàng cho tác vụ tiếp theo.
-     *
+     * @apiNote Optional
      * @param threadId ID của luồng worker.
      */
     public void clearThreadRow(String threadId) {
         SwingUtilities.invokeLater(() -> {
-            Integer rowIndex = threadRowMap.get(threadId);
-            if (rowIndex != null && rowIndex < model.getRowCount()) {
-                model.setValueAt("", rowIndex, 1); // Type
-                model.setValueAt("", rowIndex, 2); // Source Account
-                model.setValueAt("", rowIndex, 3); // Target Account
-                model.setValueAt("", rowIndex, 4); // Transaction Amount
-                model.setValueAt("", rowIndex, 5); // Predicted Balance
-                model.setValueAt("", rowIndex, 6); // Actual Balance
-                model.setValueAt("", rowIndex, 7); // Start At
-                model.setValueAt("Idle", rowIndex, 8); // Status
-
-                // Giữ nguyên số lượng giao dịch đã xử lý trong cột "Total transaction"
-                int currentTransactionCount = threadTransactionCount.getOrDefault(threadId, 0);
-                model.setValueAt(currentTransactionCount, rowIndex, 9); // Total transaction
+            Integer rowIdx = threadRowMap.get(threadId);
+            if (rowIdx != null && rowIdx < model.getRowCount()) {
+                model.setValueAt("", rowIdx, 1);
+                model.setValueAt("", rowIdx, 2);
+                model.setValueAt("", rowIdx, 3);
+                model.setValueAt("", rowIdx, 4);
+                model.setValueAt("", rowIdx, 5);
+                model.setValueAt("", rowIdx, 6);
+                model.setValueAt("", rowIdx, 7);
+                model.setValueAt("Idle", rowIdx, 8);
+                int currTransactionCount = threadTransactionCount.getOrDefault(threadId, 0);
+                model.setValueAt(currTransactionCount, rowIdx, 9);
             }
         });
     }

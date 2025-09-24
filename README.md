@@ -4,6 +4,9 @@
 
 BankSim is a console-based and Swing GUI Java application designed to simulate fundamental banking operations. It provides interfaces for users to interact with a banking system, allowing them to manage accounts and perform transactions. The project demonstrates a `3-layered architecture (Presentation, Business Logic, Data Access)` and incorporates concurrent transaction processing using Java's `ExecutorService` combined with explicit per-account locking for critical operations.
 
+## Video Demo: Concurrent Transactions (1000 transactions with 100 threads)
+<video src="/media/20250924_175258.mp4" controls title="BankSim Concurrent Transactions Demo" width="720"></video>
+
 ## Features
 
 *   **Open Account**: Create new bank accounts with an initial balance.
@@ -83,8 +86,9 @@ src/
 
 ## Demo Images tests
 ### Deposit (30 times deposit)
-- ![](/images/deposit.png)
+- ![](/media/deposit.png)
 ### Withdraw (30 times withdraw)
-- ![](/images/withdraw.png)
+- ![](/media/withdraw.png)
 ### Tranfer (10 times tranfer)
-- ![](/images/tranfer.png)
+- ![](/media/tranfer.png)
+

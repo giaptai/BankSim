@@ -1,10 +1,5 @@
 package data.models;
 
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
-import resources.MyExceptions;
-
 public class Account {
     private int accountId;
     private String ownerName;
