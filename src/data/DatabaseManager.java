@@ -18,7 +18,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 import data.models.Account;
 import data.models.Transaction;
@@ -30,28 +34,23 @@ import resources.annotations.Repository;
 public class DatabaseManager {
     private static Logger LOGGER = Logger.getLogger(DatabaseManager.class.getName());
     private Properties props;
+    private HikariDataSource hikariDataSource;
 
-    public DatabaseManager() {
+    {
         try {
             loadProperties();
-            try (Connection tempConn = createConnection()) {
-                initializeDatabase(tempConn);
-            }
-        } catch (IOException | ClassNotFoundException | SQLException e) {
-            LOGGER.warning(e.getMessage());
-            throw new RuntimeException("Failed to initialize database", e);
+            initConnectionPool();
+        } catch (IOException | ClassNotFoundException e) {
+            LOGGER.log(Level.WARNING, "Failed to initialize properties: " + e.getMessage(), e);
         }
     }
 
-    private void loadProperties() throws IOException {
-        props = new Properties();
-        try (InputStream inp = this.getClass().getClassLoader()
-                .getResourceAsStream("resources/application.properties")) {
-            if (inp == null) {
-                LOGGER.warning("application.properties not found !");
-                throw new IOException("application.properties not found !");
-            }
-            props.load(inp);
+    public DatabaseManager() {
+        try (Connection tempConn = createHikariConnection()) {
+            initializeDatabase(tempConn);
+        } catch (IOException | ClassNotFoundException | SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to initialize database: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to initialize database", e);
         }
     }
 
@@ -63,11 +62,48 @@ public class DatabaseManager {
         return DriverManager.getConnection(url, user, password);
     }
 
+    public Connection createHikariConnection() throws IOException, ClassNotFoundException, SQLException {
+        return hikariDataSource.getConnection();
+    }
+
+    private void initConnectionPool() throws ClassNotFoundException {
+        Class.forName(props.getProperty("db.driver"));
+        HikariConfig hikariConfig = new HikariConfig();
+        hikariConfig.setJdbcUrl(props.getProperty("db.url"));
+        hikariConfig.setUsername(props.getProperty("db.user"));
+        hikariConfig.setPassword(props.getProperty("db.password"));
+
+        // Cấu hình thêm cho HikariCP (tùy chọn, nhưng được khuyến nghị)
+        hikariConfig.addDataSourceProperty("cachePrepStmts", true); // Cache PreparedStatement
+        hikariConfig.addDataSourceProperty("prepStmtCacheSize", 250); // Kích thước cache
+        hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048"); // Giới hạn độ dài SQL cho cache
+        hikariConfig.setMaximumPoolSize(100); // Số lượng kết nối tối đa trong pool
+        hikariConfig.setMinimumIdle(25); // Số lượng kết nối tối thiểu luôn sẵn sàng
+        hikariConfig.setConnectionTimeout(30000); // 30 giây
+        hikariConfig.setIdleTimeout(600000); // 10 phút
+        hikariConfig.setMaxLifetime(1800000); // 30 phút
+
+        hikariDataSource = new HikariDataSource(hikariConfig);
+        LOGGER.info("HikariCP connection pool initialized.");
+    }
+
+    private void loadProperties() throws IOException {
+        props = new Properties();
+        try (InputStream inp = this.getClass().getClassLoader()
+                .getResourceAsStream("resources/dbpostgres.properties")) {
+            if (inp == null) {
+                LOGGER.log(Level.WARNING, "dbpostgres.properties not found !");
+                throw new IOException("dbpostgres.properties not found !");
+            }
+            props.load(inp);
+        }
+    }
+
     private void initializeDatabase(Connection conn) throws SQLException, IOException, ClassNotFoundException {
         StringBuilder sb = new StringBuilder();
         try (InputStream is = getClass().getClassLoader().getResourceAsStream("resources/ddl.sql")) {
             if (is == null) {
-                LOGGER.warning("ddl.sql not found !");
+                LOGGER.log(Level.WARNING, "ddl.sql not found !");
                 throw new IOException("ddl.sql not found !");
             }
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
@@ -79,7 +115,7 @@ public class DatabaseManager {
         }
         String ddlSql = sb.toString();
         if (ddlSql == null || ddlSql.trim().isEmpty()) {
-            LOGGER.warning("ddl.sql is empty or null. Skipping database initialization.");
+            LOGGER.log(Level.WARNING, "ddl.sql is empty or null. Skipping database initialization.");
             return;
         }
         try (Statement stmt = conn.createStatement()) {
@@ -184,7 +220,7 @@ public class DatabaseManager {
 
             psTrans.executeBatch();
         } catch (SQLException e) {
-            LOGGER.warning(e.getMessage());
+            LOGGER.log(Level.WARNING, e.getMessage(), e);
             throw e;
         }
     }
@@ -245,5 +281,12 @@ public class DatabaseManager {
             }
         }
         return transactions;
+    }
+
+    public void close() {
+        if (hikariDataSource != null && !hikariDataSource.isClosed()) {
+            hikariDataSource.close();
+            LOGGER.info("HikariCP connection pool closed.");
+        }
     }
 }

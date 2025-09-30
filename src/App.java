@@ -1,24 +1,30 @@
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+
 import javax.swing.SwingUtilities;
 
-
+import business.service.BankService;
+import data.DatabaseManagerFactory;
+import data.IDatabaseManager;
 import presentation.ui.ThreadTrackerGUI;
 
 public class App {
     public static void main(String[] args) {
-        // 1. Initital Data access layer
-        // DatabaseManager databaseManager = new DatabaseManager();
+        SwingUtilities.invokeLater(() -> {
+            IDatabaseManager databaseManager = DatabaseManagerFactory.create("postgres");
+            ThreadTrackerGUI trackerGUI = new ThreadTrackerGUI();
+            BankService bankService = new BankService(databaseManager, trackerGUI);
 
-        // 2. Initial Business Logic layer
-        // BankService bankService = new BankService(databaseManager);
+            trackerGUI.setBankService(bankService);
+            trackerGUI.setVisible(true);
 
-        // 3. Initial Presentation layer
-        // Menu menu = new Menu();
-        // BankController bankController = new BankController(bankService, menu);
-
-        // start
-        // bankController.start();
-
-        ThreadTrackerGUI trackerGUI = new ThreadTrackerGUI();
-        SwingUtilities.invokeLater(()->trackerGUI.setVisible(true));
+            trackerGUI.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    bankService.close();
+                    System.out.println("BankService closed gracefully.");
+                }
+            });
+        });
     }
 }

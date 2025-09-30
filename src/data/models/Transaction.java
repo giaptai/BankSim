@@ -11,6 +11,7 @@ public class Transaction {
     private double amount;
     private LocalDateTime timestamp;
 
+    // for save
     public Transaction(int accountId, Type type, double amount) {
         this.accountId = accountId;
         this.type = type;

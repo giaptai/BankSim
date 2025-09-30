@@ -1,12 +1,22 @@
 package data.models;
 
+import java.text.DecimalFormat;
+
+import resources.annotations.Builder;
+
+@Builder
 public class Account {
     private int accountId;
     private String ownerName;
     private double balance;
-    // private Lock accountLock = new ReentrantLock();
 
     public Account() {
+    }
+
+    private Account(Builder builder){
+        this.accountId = builder.accountId;
+        this.ownerName = builder.ownerName;
+        this.balance = builder.balance;
     }
 
     public Account(int accountId, String ownerName, double balance) {
@@ -32,31 +42,47 @@ public class Account {
         return balance;
     }
 
-    // public Lock getAccountLock() {
-    //     return accountLock;
-    // }
-
-    public void deposit(Double amount) {
-        // accountLock.lock();
-        try {
-            this.balance += amount;
-        } finally {
-            // accountLock.unlock();
-        }
-    }
-
-    public void withdraw(Double amount) {
-        // accountLock.lock();
-        try {
-            this.balance -= amount;
-        } finally {
-            // accountLock.unlock();
-        }
+    public void setBalance(double balance) {
+        this.balance = balance;
     }
 
     @Override
     public String toString() {
-        return "Account [" + "Account Id = " + accountId + ", Owner Name = " + ownerName + ", balance = " + balance
+        DecimalFormat df = new DecimalFormat("#,##0.00");
+        return "Account [" + "Account Id = " + accountId + ", Owner Name = " + ownerName + ", balance = "
+                + df.format(balance)
                 + "]";
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private int accountId;
+        private String ownerName;
+        private double balance;
+
+        public Builder() {
+        }
+
+        public Builder accountId(int accountId) {
+            this.accountId = accountId;
+            return this;
+        }
+
+        public Builder ownerName(String ownerName) {
+            this.ownerName = ownerName;
+            return this;
+        }
+
+        public Builder balance(double balance) {
+            this.balance = balance;
+            return this;
+        }
+
+        public Account build(){
+            return new Account(this);
+        }
     }
 }

@@ -103,6 +103,47 @@ Bạn sẽ xây dựng một ứng dụng mô phỏng hệ thống ngân hàng, 
     *   Nếu tên tài khoản đã tồn tại trong CSDL, ghi lại sự kiện này vào **log file (hoặc console)** cùng với ngày tháng cụ thể.
     *   **Điểm**: **2 điểm** (trung bình).
 
+
+```
+dự án này hiện tại có thể áp dụng design patterns nào - ngoài factory method mới triển khai xong, chỉ nêu tên thôi (chưa có đưa code) và nêu lý do tại sao dùng (lợi ích)
+
+Dưới đây là các design patterns có thể áp dụng cho dự án của bạn (ngoài Factory Method):
+
+Singleton
+
+Lý do: Đảm bảo chỉ có một instance cho các class như DatabaseManager, Logger, hoặc cấu hình hệ thống.
+Lợi ích: Tiết kiệm tài nguyên, quản lý trạng thái dùng chung dễ dàng.
+Strategy
+
+Lý do: Cho phép thay đổi thuật toán xử lý giao dịch, kiểm tra bảo mật, hoặc tính phí giao dịch mà không sửa code lớp sử dụng.
+Lợi ích: Dễ mở rộng, thay đổi logic runtime linh hoạt.
+Observer
+
+Lý do: Theo dõi thay đổi trạng thái tài khoản, giao dịch để cập nhật GUI hoặc log.
+Lợi ích: Tách biệt logic cập nhật giao diện/log khỏi logic nghiệp vụ, dễ bảo trì.
+Command
+
+Lý do: Đóng gói các thao tác như deposit, withdraw, transfer thành các đối tượng lệnh.
+Lợi ích: Dễ undo/redo, xếp hàng (queue) giao dịch, log lịch sử thao tác.
+Template Method
+
+Lý do: Định nghĩa khung xử lý giao dịch, cho phép các bước cụ thể (kiểm tra, ghi log, commit) được override ở subclass.
+Lợi ích: Tái sử dụng code, chuẩn hóa quy trình nghiệp vụ.
+Decorator
+
+Lý do: Thêm chức năng cho Account hoặc Transaction (ví dụ: logging, kiểm tra bảo mật) mà không sửa code gốc.
+Lợi ích: Mở rộng chức năng linh hoạt, không ảnh hưởng class chính.
+Adapter
+
+Lý do: Kết nối với các hệ thống bên ngoài hoặc API khác mà interface không tương thích (ví dụ: chuyển đổi giữa các loại database hoặc hệ thống thanh toán).
+Lợi ích: Tăng khả năng tích hợp, giảm phụ thuộc vào code bên ngoài.
+Builder
+
+Lý do: Tạo các đối tượng phức tạp như Account, Transaction với nhiều thuộc tính tuỳ chọn.
+Lợi ích: Code rõ ràng, dễ đọc, tránh constructor dài dòng.
+```
+
+
 ### **Tổng Kết và Điểm Vượt Qua**
 
 *   **Tổng điểm tối đa**: 22 điểm.

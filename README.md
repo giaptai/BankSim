@@ -86,6 +86,27 @@ src/
 *   **PostgreSQL**: As the relational database for data persistence.
 *   **Swing**: For the optional graphical user interface.
 
+
+## Performance Benchmarks
+
+Để đánh giá tác động của Connection Pooling, chúng tôi đã thực hiện các thử nghiệm hiệu suất cho các giao dịch gửi tiền (deposit) với số lượng khác nhau, so sánh giữa việc không sử dụng HikariCP (mở/đóng kết nối cho mỗi giao dịch) và sau khi áp dụng HikariCP.
+
+**Cấu hình thử nghiệm:**
+*   `ExecutorService` với 100 luồng (`MAX_THREADS = 100`).
+*   HikariCP `maximumPoolSize` được cấu hình là 100.
+
+**Kết quả thực nghiệm:**
+
+| Số lượng Giao dịch | Trước HikariCP (Tổng thời gian) | Sau HikariCP (Tổng thời gian) | Cải thiện (Tổng thời gian) | Trước HikariCP (ms/giao dịch) | Sau HikariCP (ms/giao dịch) | Cải thiện (ms/giao dịch) |
+| :----------------- | :------------------------------ | :---------------------------- | :------------------------- | :---------------------------- | :-------------------------- | :------------------------ |
+| **1.000**          | ~10 giây                        | **2 giây**                    | **5 lần**                  | ~10 ms                        | **2 ms**                    | **5 lần**                 |
+| **10.000**         | ~89 giây                        | **9 giây**                    | **~9.9 lần**               | ~8.9 ms                       | **0.9 ms**                  | **~9.9 lần**              |
+| **100.000**        | ~849 giây (14.15 phút)          | **107 giây (1.78 phút)**      | **~7.9 lần**               | ~8.5 ms                       | **1.07 ms**                 | **~7.9 lần**              |
+
+**Kết luận:**
+Việc tích hợp HikariCP đã mang lại sự cải thiện hiệu suất đáng kể, giảm thời gian xử lý giao dịch trung bình từ khoảng 8.5-10ms xuống dưới 2ms, đặc biệt hiệu quả với số lượng giao dịch lớn. Điều này chứng minh rằng Connection Pooling là giải pháp hiệu quả để loại bỏ nút thắt cổ chai do chi phí mở/đóng kết nối CSDL gây ra trong các ứng dụng đa luồng.
+
+
 ## Demo Images tests
 ### Deposit (30 times deposit)
 - ![](/media/deposit.png)
