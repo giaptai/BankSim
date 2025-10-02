@@ -8,6 +8,13 @@ BankSim is a console-based and Swing GUI Java application designed to simulate f
 
 [Video demo](/media/20250924_175258.mp4)
 
+## Live Demo
+You can experience the BankSim application developed on Render here:
+[https://banksim-webswing-0-1.onrender.com/banksim/](https://banksim-webswing-0-1.onrender.com/banksim/)
+
+**Deployment Configuration on Render:**
+* **PostgreSQL DB:** 0.1 CPU, 256 MB RAM
+* **Web Service (Webswing App):** 0.1 CPU, 512 MB RAM
 
 ## Features
 
@@ -105,6 +112,72 @@ src/
 
 **Kết luận:**
 Việc tích hợp HikariCP đã mang lại sự cải thiện hiệu suất đáng kể, giảm thời gian xử lý giao dịch trung bình từ khoảng 8.5-10ms xuống dưới 2ms, đặc biệt hiệu quả với số lượng giao dịch lớn. Điều này chứng minh rằng Connection Pooling là giải pháp hiệu quả để loại bỏ nút thắt cổ chai do chi phí mở/đóng kết nối CSDL gây ra trong các ứng dụng đa luồng.
+
+
+## How to build jar
+
+Sử dụng PowerShell (recommended) hoặc Command Prompt (cmd). Thực hiện tại thư mục gốc dự án: d:\java-project\BankSim
+
+PowerShell (dễ nhất):
+```powershell
+# 1. Dọn bin
+Remove-Item -Recurse -Force bin -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path bin
+
+# 2. Tạo danh sách nguồn và biên dịch
+Get-ChildItem src -Recurse -Filter *.java | Select-Object -ExpandProperty FullName | Out-File sources.txt -Encoding UTF8
+javac -d bin -cp "lib/*" -encoding UTF-8 (Get-Content sources.txt)
+
+# 3. Sao chép resources (dbpostgres.properties, logging.properties, ...)
+Copy-Item -Path src\resources -Destination bin -Recurse -Force
+
+# 4. (Nếu cần) Tạo MANIFEST.MF — hoặc dùng MANIFEST.MF đã có sẵn
+@"
+Manifest-Version: 1.0
+Main-Class: App
+Class-Path: lib/postgresql-42.7.7.jar lib/HikariCP-7.0.2.jar lib/slf4j-api-2.0.17.jar lib/slf4j-jdk14-2.0.17.jar
+"@ | Out-File -FilePath MANIFEST.MF -Encoding ASCII
+
+# 5. Tạo JAR
+jar cvfm BankSim.jar MANIFEST.MF -C bin .
+
+# 6. Kiểm tra file resource đã có trong JAR chưa
+jar tf BankSim.jar | Select-String "resources/dbpostgres.properties"
+
+# 7. Chạy JAR
+java -jar BankSim.jar
+```
+
+Command Prompt (cmd.exe):
+```cmd
+REM 1. Dọn bin
+rmdir /s /q bin
+mkdir bin
+
+REM 2. Biên dịch (biên dịch tất cả .java; nếu cmd không hỗ trợ glob đầy đủ, dùng for)
+for /R src %f in (*.java) do @echo %f >> sources.txt
+javac -d bin -cp "lib\*" @sources.txt
+
+REM 3. Sao chép resources
+xcopy /E /I src\resources bin\resources
+
+REM 4. Tạo/chuẩn bị MANIFEST.MF (tạo bằng notepad hoặc copy file có sẵn)
+
+REM 5. Tạo JAR
+jar cvfm BankSim.jar MANIFEST.MF -C bin .
+
+REM 6. Kiểm tra
+jar tf BankSim.jar | findstr /I "resources\\dbpostgres.properties"
+
+REM 7. Chạy
+java -jar BankSim.jar
+```
+
+Ghi chú ngắn:
+- Hãy chắc chắn thư mục `lib` (các JAR phụ thuộc) nằm cùng cấp với `BankSim.jar`.
+- Kiểm tra `bin\resources\dbpostgres.properties` trước khi tạo JAR; nếu không có, ứng dụng sẽ báo lỗi khi chạy.
+- Nếu gặp lỗi thiếu class khi javac, đảm bảo các JAR phụ thuộc trong `lib` đúng phiên bản và đường dẫn chính xác trong `MANIFEST.MF`.
+
 
 
 ## Demo Images tests
