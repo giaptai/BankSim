@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,42 +20,45 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import business.service.transaction.observer.Observer;
+import business.service.transaction.observer.Subject;
+import business.service.transaction.observer.TransactionEvent;
 import business.service.transaction.template.DepositProcessor;
 import business.service.transaction.template.SingleAccTxTemplate;
 import business.service.transaction.template.WithdrawProcessor;
 import data.IDatabaseManager;
 import data.models.Account;
 import data.models.Transaction;
-import presentation.ui.ThreadTrackerGUI;
 
 import java.util.concurrent.TimeUnit;
 
+import resources.Constants;
 import resources.MyExceptions;
+import resources.TransactionStatus;
 import resources.MyExceptions.InvalidAmountException;
+import resources.Type;
 import resources.MyExceptions.AccountNotFoundException;
 import resources.MyExceptions.InsufficientFundsException;
-import resources.Type;
 import resources.annotations.Service;
 
 @Service
-public class BankService {
-    private Logger LOGGER = Logger.getLogger(BankService.class.getName());
+public class BankService implements IBankService, Subject {
+    private static Logger LOGGER = Logger.getLogger(BankService.class.getName());
     private static ExecutorService transactionExecutor;
     private IDatabaseManager databaseManager;
     private final Map<Integer, Lock> accountLocks = new ConcurrentHashMap<>();
-    private ThreadTrackerGUI trackerGUI;
-    private final int MAX_THREADS = 100;
+    private List<Observer> trackerGUIObservers = new CopyOnWriteArrayList<>();
 
     private BankService(IDatabaseManager databaseManager) {
         if (transactionExecutor == null) {
-            transactionExecutor = Executors.newFixedThreadPool(MAX_THREADS);
+            transactionExecutor = Executors.newFixedThreadPool(Constants.MAX_THREADS);
         }
         this.databaseManager = databaseManager;
     }
 
-    public BankService(IDatabaseManager databaseManager, ThreadTrackerGUI trackerGUI) {
+    public BankService(IDatabaseManager databaseManager, Observer trackerGUI) {
         this(databaseManager);
-        this.trackerGUI = trackerGUI;
+        attach(trackerGUI);
     }
 
     /**
@@ -66,6 +70,7 @@ public class BankService {
      * @throws InterruptedException
      * @throws RuntimeException
      */
+    @Override
     public Account openAccount(String ownName, double initialBalance) throws InterruptedException, RuntimeException {
         if (initialBalance < 0) {
             throw new InvalidAmountException();
@@ -116,13 +121,13 @@ public class BankService {
         }
     }
 
+    @Override
     public Future<?> deposit(Integer accountId, double amount) throws InterruptedException, RuntimeException {
         return transactionExecutor.submit(
                 () -> {
-                    SingleAccTxTemplate depositProcessor = new DepositProcessor(databaseManager, trackerGUI, this,
-                            accountId, amount);
+                    SingleAccTxTemplate depositProcessor = new DepositProcessor(databaseManager, accountId, amount);
                     try {
-                        depositProcessor.execute();
+                        notifyObservers(depositProcessor.execute());
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         LOGGER.log(Level.WARNING, "Deposit task interrupted: " + e.getMessage(), e);
@@ -134,13 +139,13 @@ public class BankService {
                 });
     }
 
+    @Override
     public Future<?> withdraw(Integer accountId, double amount) throws InterruptedException, RuntimeException {
         Future<?> fu = transactionExecutor.submit(
                 () -> {
-                    SingleAccTxTemplate withdrawProcessor = new WithdrawProcessor(databaseManager, trackerGUI, this,
-                            accountId, amount);
+                    SingleAccTxTemplate withdrawProcessor = new WithdrawProcessor(databaseManager, accountId, amount);
                     try {
-                        withdrawProcessor.execute();
+                        notifyObservers(withdrawProcessor.execute());
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         LOGGER.log(Level.WARNING, "Withdraw task interrupted: " + e.getMessage(), e);
@@ -153,6 +158,7 @@ public class BankService {
         return fu;
     }
 
+    @Override
     public Future<?> transfer(int fromAccountId, int toAccountId, double amount)
             throws InterruptedException, RuntimeException {
         Future<?> fu = transactionExecutor.submit(
@@ -204,36 +210,38 @@ public class BankService {
                                 initialBalance = toAccount.getBalance();
                                 predictedBalance = initialBalance + amount;
 
-                                if (trackerGUI != null) {
-                                    trackerGUI.updateThreadRow(
-                                            currThreadName,
-                                            Type.TRANSFER.name(),
-                                            String.valueOf(fromAccountId),
-                                            String.valueOf(toAccountId),
-                                            amount,
-                                            predictedBalance,
-                                            -1.0,
-                                            startTime,
-                                            "Pending",
-                                            "");
-                                }
+                                this.notifyObservers(
+                                        TransactionEvent.builder()
+                                                .currThreadName(currThreadName)
+                                                .type(Type.TRANSFER.name())
+                                                .fromAccountId(String.valueOf(fromAccountId))
+                                                .toAccountId(String.valueOf(toAccountId))
+                                                .amount(amount)
+                                                .predictedBalance(predictedBalance)
+                                                .actualBalance(-1.0)
+                                                .startTime(startTime)
+                                                .status(TransactionStatus.PENDING)
+                                                .message("")
+                                                .build());
 
                                 databaseManager.saveTransaction(conn, fromAccount, toAccount, amount);
                                 conn.commit();
                                 Account finalAccount = databaseManager.getAccountById(conn, toAccountId);
-                                if (trackerGUI != null && finalAccount != null) {
-                                    trackerGUI.updateThreadRow(
-                                            currThreadName,
-                                            Type.TRANSFER.name(),
-                                            String.valueOf(fromAccountId),
-                                            String.valueOf(toAccountId),
-                                            amount,
-                                            predictedBalance,
-                                            finalAccount.getBalance(),
-                                            LocalDateTime.now(),
-                                            "Completed",
-                                            "");
-                                }
+
+                                this.notifyObservers(
+                                        TransactionEvent.builder()
+                                                .currThreadName(currThreadName)
+                                                .type(Type.TRANSFER.name())
+                                                .fromAccountId(String.valueOf(fromAccountId))
+                                                .toAccountId(String.valueOf(toAccountId))
+                                                .amount(amount)
+                                                .predictedBalance(predictedBalance)
+                                                .actualBalance(finalAccount.getBalance())
+                                                .startTime(LocalDateTime.now())
+                                                .status(TransactionStatus.COMPLETED)
+                                                .message("")
+                                                .build());
+
                             } finally {
                                 secondLock.unlock();
                             }
@@ -249,19 +257,21 @@ public class BankService {
                                         rollBackEx);
                             }
                         }
-                        if (trackerGUI != null) {
-                            trackerGUI.updateThreadRow(
-                                    currThreadName,
-                                    Type.TRANSFER.name(),
-                                    String.valueOf(fromAccountId),
-                                    String.valueOf(toAccountId),
-                                    amount,
-                                    predictedBalance,
-                                    -1.0,
-                                    startTime,
-                                    "Failed",
-                                    e.getMessage());
-                        }
+
+                        this.notifyObservers(
+                                TransactionEvent.builder()
+                                        .currThreadName(currThreadName)
+                                        .type(Type.TRANSFER.name())
+                                        .fromAccountId(String.valueOf(fromAccountId))
+                                        .toAccountId(String.valueOf(toAccountId))
+                                        .amount(amount)
+                                        .predictedBalance(predictedBalance)
+                                        .actualBalance(-1.0)
+                                        .startTime(startTime)
+                                        .status(TransactionStatus.FAILED)
+                                        .message(e.getMessage())
+                                        .build());
+
                         throw e;
                     } catch (IOException | ClassNotFoundException | SQLException e) {
                         if (conn != null) {
@@ -272,19 +282,21 @@ public class BankService {
                                         rollBackEx);
                             }
                         }
-                        if (trackerGUI != null) {
-                            trackerGUI.updateThreadRow(
-                                    currThreadName,
-                                    Type.TRANSFER.name(),
-                                    String.valueOf(fromAccountId),
-                                    String.valueOf(toAccountId),
-                                    amount,
-                                    predictedBalance,
-                                    -1.0,
-                                    startTime,
-                                    "Failed",
-                                    e.getMessage());
-                        }
+
+                        this.notifyObservers(
+                                TransactionEvent.builder()
+                                        .currThreadName(currThreadName)
+                                        .type(Type.TRANSFER.name())
+                                        .fromAccountId(String.valueOf(fromAccountId))
+                                        .toAccountId(String.valueOf(toAccountId))
+                                        .amount(amount)
+                                        .predictedBalance(predictedBalance)
+                                        .actualBalance(-1.0)
+                                        .startTime(startTime)
+                                        .status(TransactionStatus.FAILED)
+                                        .message(e.getMessage())
+                                        .build());
+
                         LOGGER.log(Level.SEVERE, "System error during transfer: " + e.getMessage(), e);
                         throw new RuntimeException(e);
                     } finally {
@@ -301,6 +313,7 @@ public class BankService {
         return fu;
     }
 
+    @Override
     public String getAccountDetails(int accountId) throws RuntimeException {
         Connection conn = null;
         try {
@@ -322,6 +335,7 @@ public class BankService {
         }
     }
 
+    @Override
     public List<Transaction> getTransactionHistory(int accountId) throws RuntimeException {
         Connection conn = null;
         List<Transaction> transactions = new ArrayList<>();
@@ -344,6 +358,7 @@ public class BankService {
         }
     }
 
+    @Override
     public void close() {
         transactionExecutor.shutdown();
         try {
@@ -356,5 +371,26 @@ public class BankService {
             LOGGER.log(Level.WARNING, "BankService shutdown interrupted: " + e.getMessage(), e);
         }
         databaseManager.close();
+    }
+
+    @Override
+    public void attach(Observer observer) {
+        if (observer != null && !trackerGUIObservers.contains(observer)) {
+            this.trackerGUIObservers.add(observer);
+        }
+    }
+
+    @Override
+    public void detach(Observer observer) {
+        if (observer != null) {
+            this.trackerGUIObservers.remove(observer);
+        }
+    }
+
+    @Override
+    public void notifyObservers(TransactionEvent event) {
+        for (Observer observer : trackerGUIObservers) {
+            observer.update(event);
+        }
     }
 }

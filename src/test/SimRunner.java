@@ -18,12 +18,13 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 
-import business.service.BankService;
+import business.service.IBankService;
+import resources.Constants;
 
 public class SimRunner {
     private static Logger LOGGER = Logger.getLogger(SimRunner.class.getName());
 
-    private BankService bankService;
+    private IBankService bankService;
 
     static {
         loadLogConfig();
@@ -31,7 +32,7 @@ public class SimRunner {
 
     private static void loadLogConfig() {
         try (InputStream is = SimRunner.class.getClassLoader()
-                .getResourceAsStream("resources/logging.properties")) {
+                .getResourceAsStream(Constants.LOGGING_PROPERTIES_PATH)) {
             if (is != null) {
                 LogManager.getLogManager().readConfiguration(is);
                 LOGGER.info("Logging configuration loaded successfully.");
@@ -63,7 +64,7 @@ public class SimRunner {
     public SimRunner() {
     }
 
-    public SimRunner(BankService bankService) {
+    public SimRunner(IBankService bankService) {
         this.bankService = bankService;
     }
 

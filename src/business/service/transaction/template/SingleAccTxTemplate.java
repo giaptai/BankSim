@@ -7,21 +7,18 @@ import java.time.LocalDateTime;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import business.service.BankService;
+import business.service.transaction.observer.TransactionEvent;
 import resources.Type;
-
 import data.IDatabaseManager;
 import data.models.Account;
-import presentation.ui.ThreadTrackerGUI;
 import resources.MyExceptions.AccountNotFoundException;
 import resources.MyExceptions.InsufficientFundsException;
 import resources.MyExceptions.InvalidAmountException;
+import resources.TransactionStatus;
 
 public abstract class SingleAccTxTemplate {
-    private Logger LOGGER = Logger.getLogger(SingleAccTxTemplate.class.getName());
+    private static Logger LOGGER = Logger.getLogger(SingleAccTxTemplate.class.getName());
     protected IDatabaseManager databaseManager;
-    protected ThreadTrackerGUI trackerGUI;
-    protected BankService bankService;
     protected Connection conn;
     protected String currThreadName;
     protected LocalDateTime startTime;
@@ -31,16 +28,16 @@ public abstract class SingleAccTxTemplate {
     protected int accountId;
     protected Account primaryAccount;
 
-    public SingleAccTxTemplate(IDatabaseManager databaseManager, ThreadTrackerGUI trackerGUI, BankService bankService) {
+    public SingleAccTxTemplate(IDatabaseManager databaseManager, int accountId, double amount) {
         this.databaseManager = databaseManager;
-        this.trackerGUI = trackerGUI;
-        this.bankService = bankService;
+        this.accountId = accountId;
+        this.amount = amount;
     }
 
-    public final void execute() throws InterruptedException, RuntimeException {
+    public final TransactionEvent execute() throws InterruptedException, RuntimeException {
         currThreadName = Thread.currentThread().getName();
         startTime = LocalDateTime.now();
-
+        TransactionEvent finalEvent = null;
         try {
             conn = databaseManager.createHikariConnection();
             conn.setAutoCommit(false);
@@ -56,26 +53,58 @@ public abstract class SingleAccTxTemplate {
             initialBalance = primaryAccount.getBalance();
             predictedBalance = calculatePredictedBalanceValue(initialBalance, amount);
 
-            updateGUI("Pending", "");
-
             performSpecificBusinessLogic();
 
             saveTransaction();
 
             conn.commit();
 
-            updateGUI("Completed", "");
+            finalEvent = TransactionEvent.builder()
+                    .currThreadName(currThreadName)
+                    .type(getTransactionType().name())
+                    .fromAccountId(String.valueOf(accountId))
+                    .toAccountId(null)
+                    .amount(amount)
+                    .predictedBalance(predictedBalance)
+                    .actualBalance(primaryAccount.getBalance())
+                    .startTime(startTime)
+                    .status(TransactionStatus.COMPLETED)
+                    .message("")
+                    .build();
         } catch (InsufficientFundsException | InvalidAmountException | AccountNotFoundException e) {
             rollbackAndLog(e, Level.WARNING);
-            updateGUI("Failed", e.getMessage());
+            finalEvent = TransactionEvent.builder()
+                    .currThreadName(currThreadName)
+                    .type(Type.TRANSFER.name())
+                    .fromAccountId(String.valueOf(accountId))
+                    .toAccountId(null)
+                    .amount(amount)
+                    .predictedBalance(predictedBalance)
+                    .actualBalance(-1.0)
+                    .startTime(startTime)
+                    .status(TransactionStatus.FAILED)
+                    .message(e.getMessage())
+                    .build();
             throw e;
         } catch (IOException | ClassNotFoundException | SQLException e) {
             rollbackAndLog(e, Level.SEVERE);
-            updateGUI("Failed", "System Error");
+            finalEvent = TransactionEvent.builder()
+                    .currThreadName(currThreadName)
+                    .type(Type.TRANSFER.name())
+                    .fromAccountId(String.valueOf(accountId))
+                    .toAccountId(null)
+                    .amount(amount)
+                    .predictedBalance(predictedBalance)
+                    .actualBalance(-1.0)
+                    .startTime(startTime)
+                    .status(TransactionStatus.FAILED)
+                    .message("System error")
+                    .build();
             throw new RuntimeException("System error during transaction: " + e.getMessage(), e);
         } finally {
             closeConnection();
         }
+        return finalEvent;
     }
 
     protected abstract void validateInput() throws InvalidAmountException, InsufficientFundsException;
@@ -87,22 +116,6 @@ public abstract class SingleAccTxTemplate {
     protected abstract void saveTransaction() throws SQLException;
 
     protected abstract Type getTransactionType();
-
-    protected void updateGUI(String status, String message) {
-        if (trackerGUI != null) {
-            trackerGUI.updateThreadRow(
-                    currThreadName,
-                    getTransactionType().name(),
-                    String.valueOf(accountId),
-                    "N/A",
-                    amount,
-                    predictedBalance,
-                    "Pending".equals(status) ? -1.0 : primaryAccount.getBalance(),
-                    startTime,
-                    status,
-                    message);
-        }
-    }
 
     protected void rollbackAndLog(Exception e, Level level) {
         try {

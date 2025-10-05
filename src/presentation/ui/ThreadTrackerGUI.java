@@ -16,7 +16,10 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
-import business.service.BankService;
+import business.service.IBankService;
+import business.service.transaction.observer.Observer;
+import business.service.transaction.observer.TransactionEvent;
+import resources.Constants;
 import resources.MyExceptions.AccountNotFoundException;
 import test.SimRunner;
 
@@ -32,7 +35,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,20 +42,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class ThreadTrackerGUI extends JFrame {
+public class ThreadTrackerGUI extends JFrame implements Observer {
     private static final Logger LOGGER = Logger.getLogger(ThreadTrackerGUI.class.getName());
     private DefaultTableModel model;
     // Map để lưu trữ chỉ số hàng của từng luồng worker dựa trên Thread.getName()
     private Map<String, Integer> threadRowMap;
     // Map để lưu trữ tổng số giao dịch đã xử lý bởi mỗi luồng
     private Map<String, Integer> threadTransactionCount;
-
     // Map để lưu trữ thời gian cập nhật cuối cùng cho mỗi hàng luồng
     private Map<String, Long> lastUpdateTimes; // Thêm map này
-    private final long MIN_UPDATE_INTERVAL_MS = 50; // Cập nhật tối đa mỗi 50ms cho mỗi luồng
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private final int maxThread = 100;
     private DecimalFormat df = new DecimalFormat("#,##0.00");
     private JTextField tfAccountId;
     private JTextField tfToAccountId;
@@ -62,11 +60,9 @@ public class ThreadTrackerGUI extends JFrame {
     private JComboBox<String> boxType;
     private JComboBox<Integer> boxTrans;
     private JLabel statusLabel;
-
     private JLabel startAtLabel;
     private JLabel finishedAtLabel;
-
-    private BankService bankService;
+    private IBankService bankService;
 
     public ThreadTrackerGUI() {
         setTitle("BankSim - Thread Tracker");
@@ -80,7 +76,7 @@ public class ThreadTrackerGUI extends JFrame {
         initComponents();
     }
 
-    public void setBankService(BankService bankService) {
+    public void setBankService(IBankService bankService) {
         this.bankService = bankService;
     }
 
@@ -344,7 +340,7 @@ public class ThreadTrackerGUI extends JFrame {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                startAtLabel.setText("Started at: " + LocalDateTime.now().format(FORMATTER));
+                startAtLabel.setText("Started at: " + LocalDateTime.now().format(Constants.FORMATTER));
                 finishedAtLabel.setText("Finished at: N/A");
             }
         });
@@ -386,7 +382,7 @@ public class ThreadTrackerGUI extends JFrame {
                             transactionType.name(), fromAccountId), new Color(34, 139, 34));
                 }
                 SwingUtilities.invokeLater(() -> {
-                    finishedAtLabel.setText("Finished at: " + LocalDateTime.now().format(FORMATTER));
+                    finishedAtLabel.setText("Finished at: " + LocalDateTime.now().format(Constants.FORMATTER));
                 });
             }).start();
 
@@ -422,69 +418,6 @@ public class ThreadTrackerGUI extends JFrame {
     }
 
     /**
-     * 
-     * @param threadId
-     * @param type
-     * @param sourceAccountId
-     * @param targetAccountId
-     * @param amount
-     * @param predictedBalance
-     * @param actualBalance
-     * @param startAt
-     * @param status
-     * @param message
-     */
-    public void updateThreadRow(
-            String threadId, String type, String sourceAccountId, String targetAccountId, double amount,
-            double predictedBalance, double actualBalance, LocalDateTime startAt, String status, String message) {
-
-        long currentTime = System.currentTimeMillis();
-        Long lastTime = lastUpdateTimes.get(threadId);
-
-        // Chỉ cập nhật GUI nếu đủ thời gian đã trôi qua HOẶC nếu đó là trạng thái cuối
-        // cùng (Completed/Failed)
-        boolean isFinalStatus = "Completed".equals(status) || "Failed".equals(status);
-
-        if (isFinalStatus == true || lastTime == null || (currentTime - lastTime) > MIN_UPDATE_INTERVAL_MS) {
-            SwingUtilities.invokeLater(() -> {
-                Integer rowIdx = threadRowMap.get(threadId);
-
-                if ("Completed".equals(status) || "Failed".equals(status)) {
-                    threadTransactionCount.merge(threadId, 1, (oldVal, newVal) -> oldVal + newVal);
-                }
-
-                int currTransactionCount = threadTransactionCount.getOrDefault(threadId, 0);
-                Object[] rowData = {
-                        threadId,
-                        type,
-                        sourceAccountId,
-                        targetAccountId,
-                        df.format(amount),
-                        df.format(predictedBalance),
-                        (actualBalance == -1.0) ? "N/A" : df.format(actualBalance),
-                        startAt != null ? startAt.format(FORMATTER) : "N/A",
-                        status,
-                        currTransactionCount,
-                        message != null && !message.isEmpty() ? " (" + message + ") " : ""
-                };
-                if (rowIdx == null) {
-                    if (model.getRowCount() < maxThread) {
-                        model.addRow(rowData);
-                        threadRowMap.put(threadId, model.getRowCount() - 1);
-                    } else {
-                        LOGGER.warning("Attempted to add more rows than maxThreads for thread: " + threadId);
-                    }
-                } else {
-                    for (int i = 0; i < rowData.length; i++) {
-                        model.setValueAt(rowData[i], rowIdx, i);
-                    }
-                }
-            });
-            lastUpdateTimes.put(threadId, currentTime);
-        }
-    }
-
-    /**
      * @apiNote Optional
      * @param threadId ID của luồng worker.
      */
@@ -504,5 +437,50 @@ public class ThreadTrackerGUI extends JFrame {
                 model.setValueAt(currTransactionCount, rowIdx, 9);
             }
         });
+    }
+
+    @Override
+    public void update(TransactionEvent event) {
+        long currentTime = System.currentTimeMillis();
+        Long lastTime = lastUpdateTimes.get(event.getCurrThreadName());
+
+        boolean isFinalStatus = "Completed".equals(event.getStatus().getDisplayName()) || "Failed".equals(event.getStatus().getDisplayName());
+        if (isFinalStatus == true || lastTime == null || (currentTime - lastTime) > Constants.MIN_UPDATE_INTERVAL_MS) {
+            SwingUtilities.invokeLater(() -> {
+                Integer rowIdx = threadRowMap.get(event.getCurrThreadName());
+                if ("Completed".equals(event.getStatus().getDisplayName()) || "Failed".equals(event.getStatus().getDisplayName())) {
+                    threadTransactionCount.merge(event.getCurrThreadName(), 1, (oldVal, newVal) -> oldVal + newVal);
+                }
+                int currTransactionCount = threadTransactionCount.getOrDefault(event.getCurrThreadName(), 0);
+                Object[] rowData = {
+                        event.getCurrThreadName(),
+                        event.getType(),
+                        event.getFromAccountId(),
+                        event.getToAccountId(),
+                        df.format(event.getAmount()),
+                        df.format(event.getPredictedBalance()),
+                        (event.getActualBalance() == -1.0) ? "N/A" : df.format(event.getActualBalance()),
+                        event.getStartTime() != null ? event.getStartTime().format(Constants.FORMATTER) : "N/A",
+                        event.getStatus(),
+                        currTransactionCount,
+                        event.getMessage() != null && !event.getMessage().isEmpty() ? " (" + event.getMessage() + ") "
+                                : ""
+                };
+                if (rowIdx == null) {
+                    if (model.getRowCount() < Constants.MAX_THREADS) {
+                        model.addRow(rowData);
+                        threadRowMap.put(event.getCurrThreadName(), model.getRowCount() - 1);
+                    } else {
+                        LOGGER.warning(
+                                "Attempted to add more rows than maxThreads for thread: " + event.getCurrThreadName());
+                    }
+                } else {
+                    for (int i = 0; i < rowData.length; i++) {
+                        model.setValueAt(rowData[i], rowIdx, i);
+                    }
+                }
+            });
+            lastUpdateTimes.put(event.getCurrThreadName(), currentTime);
+        }
     }
 }

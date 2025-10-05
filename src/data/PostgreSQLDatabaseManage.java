@@ -4,13 +4,18 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+
 import java.nio.charset.StandardCharsets;
+
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+
 import java.time.LocalDateTime;
+
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -20,7 +25,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import data.models.Account;
 import resources.annotations.Overloading;
-
+import resources.Constants;
 import resources.Type;
 
 public class PostgreSQLDatabaseManage implements IDatabaseManager {
@@ -28,9 +33,9 @@ public class PostgreSQLDatabaseManage implements IDatabaseManager {
     private Properties props;
     private HikariDataSource hikariDataSource;
 
-    private static final String DB_PROPERTIES_PATH = "resources/dbpostgres.properties";
-    private static final String DDL_SQL_PATH = "resources/ddl.sql";
-    private static final String DML_SQL_PATH = "resources/dml.sql";
+    static {
+        DatabaseManagerFactory.register(Constants.DB_TYPE_POSTGRES, () -> new PostgreSQLDatabaseManage());
+    }
 
     // load properties first
     {
@@ -56,7 +61,7 @@ public class PostgreSQLDatabaseManage implements IDatabaseManager {
     public void loadProperties() throws IOException {
         props = new Properties();
         try (InputStream ip = this.getClass().getClassLoader()
-                .getResourceAsStream(DB_PROPERTIES_PATH)) {
+                .getResourceAsStream(Constants.DB_PROPERTIES_PATH)) {
             if (ip == null) {
                 LOGGER.log(Level.SEVERE, "dbpostgres.properties not found !");
                 throw new IOException("dbpostgres.properties not found !");
@@ -66,19 +71,19 @@ public class PostgreSQLDatabaseManage implements IDatabaseManager {
         }
     }
 
-    // @Override
-    // public Connection createConnection() throws IOException, ClassNotFoundException, SQLException {
-    //     Class.forName(props.getProperty("db.driver"));
-    //     String url = props.getProperty("db.url");
-    //     String user = props.getProperty("db.user");
-    //     String password = props.getProperty("db.password");
-    //     return DriverManager.getConnection(url, user, password);
-    // }
+    @Override
+    public Connection createConnection() throws IOException, ClassNotFoundException, SQLException {
+        Class.forName(props.getProperty("db.driver"));
+        String url = props.getProperty("db.url");
+        String user = props.getProperty("db.user");
+        String password = props.getProperty("db.password");
+        return DriverManager.getConnection(url, user, password);
+    }
 
     @Override
     public void initializeDatabase(Connection conn) throws SQLException, IOException, ClassNotFoundException {
         StringBuilder sb = new StringBuilder();
-        try (InputStream is = this.getClass().getClassLoader().getResourceAsStream(DDL_SQL_PATH)) {
+        try (InputStream is = this.getClass().getClassLoader().getResourceAsStream(Constants.DDL_SQL_PATH)) {
             if (is == null) {
                 LOGGER.log(Level.SEVERE, "ddl.sql not found !");
                 throw new IOException("ddl.sql not found !");
@@ -111,7 +116,7 @@ public class PostgreSQLDatabaseManage implements IDatabaseManager {
 
     private void insertDefaultAccount(Connection conn) throws IOException {
         StringBuilder sb = new StringBuilder();
-        try (InputStream is = this.getClass().getClassLoader().getResourceAsStream(DML_SQL_PATH)) {
+        try (InputStream is = this.getClass().getClassLoader().getResourceAsStream(Constants.DML_SQL_PATH)) {
             if (is == null) {
                 LOGGER.log(Level.SEVERE, "dml.sql not found !");
                 throw new IOException("dml.sql not found !");

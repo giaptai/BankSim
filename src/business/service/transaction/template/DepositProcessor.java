@@ -1,22 +1,16 @@
 package business.service.transaction.template;
 
 import java.sql.SQLException;
-
-import business.service.BankService;
 import data.IDatabaseManager;
 import data.models.Transaction;
-import presentation.ui.ThreadTrackerGUI;
 import resources.MyExceptions.InsufficientFundsException;
 import resources.MyExceptions.InvalidAmountException;
 import resources.Type;
 
 public class DepositProcessor extends SingleAccTxTemplate {
 
-    public DepositProcessor(IDatabaseManager databaseManager, ThreadTrackerGUI trackerGUI, BankService bankService,
-            int accountId, double amount) {
-        super(databaseManager, trackerGUI, bankService);
-        this.accountId = accountId;
-        this.amount = amount;
+    public DepositProcessor(IDatabaseManager databaseManager, int accountId, double amount) {
+        super(databaseManager, accountId, amount);
     }
 
     @Override

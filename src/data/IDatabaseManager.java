@@ -19,9 +19,7 @@ import resources.annotations.Overloading;
 public interface IDatabaseManager {
     void loadProperties() throws IOException;
 
-    default Connection createConnection() throws IOException, ClassNotFoundException, SQLException {
-        return null;
-    }
+    Connection createConnection() throws IOException, ClassNotFoundException, SQLException;
 
     void initializeDatabase(Connection conn) throws SQLException, IOException, ClassNotFoundException;
 

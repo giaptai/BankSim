@@ -103,50 +103,45 @@ Bạn sẽ xây dựng một ứng dụng mô phỏng hệ thống ngân hàng, 
     *   Nếu tên tài khoản đã tồn tại trong CSDL, ghi lại sự kiện này vào **log file (hoặc console)** cùng với ngày tháng cụ thể.
     *   **Điểm**: **2 điểm** (trung bình).
 
+---
 
-```
-dự án này hiện tại có thể áp dụng design patterns nào - ngoài factory method mới triển khai xong, chỉ nêu tên thôi (chưa có đưa code) và nêu lý do tại sao dùng (lợi ích)
+### **5\. Các Design Patterns Đã Áp Dụng**
 
-Dưới đây là các design patterns có thể áp dụng cho dự án của bạn (ngoài Factory Method):
+Dự án này đã áp dụng thành công các Design Patterns sau để cải thiện cấu trúc, tính linh hoạt và khả năng bảo trì:
 
-Singleton
+*   **Factory Method (được triển khai với Registry Pattern)** 🏭
+    *   **Điểm**: **2 điểm**
+    *   **Mô tả**: `DatabaseManagerFactory` sử dụng **Factory Method** (`create(String type)`) để tạo các instance của các implementation `IDatabaseManager` (ví dụ: `PostgreSQLDatabaseManage`, `MySQLDatabaseManage`). Việc triển khai này được tăng cường bằng cách sử dụng **Registry Pattern** (một `Map` lưu trữ các `Supplier` để tạo đối tượng), cho phép các loại cơ sở dữ liệu mới tự đăng ký và được tạo mà không cần sửa đổi code của Factory Method, tuân thủ Nguyên tắc Open/Closed (OCP).
+    *   **Lợi ích**: Tách biệt client khỏi các lớp quản lý cơ sở dữ liệu cụ thể, tăng tính linh hoạt và khả năng mở rộng khi thêm các loại DB mới.
 
-Lý do: Đảm bảo chỉ có một instance cho các class như DatabaseManager, Logger, hoặc cấu hình hệ thống.
-Lợi ích: Tiết kiệm tài nguyên, quản lý trạng thái dùng chung dễ dàng.
-Strategy
+*   **Singleton** 🌟
+    *   **Điểm**: **2 điểm**
+    *   **Mô tả**: Đảm bảo chỉ có một instance duy nhất cho các lớp quản lý tài nguyên và trạng thái dùng chung quan trọng.
+        *   **`BankService`**: Để quản lý một `ExecutorService` (thread pool) duy nhất và một `ConcurrentHashMap` cho `accountLocks` (kiểm soát đồng thời) một cách nhất quán trên toàn ứng dụng.
+        *   **`IDatabaseManager` (và các implementation cụ thể như `PostgreSQLDatabaseManage`)**: Để quản lý một pool kết nối HikariCP duy nhất một cách hiệu quả, tránh lãng phí tài nguyên và đảm bảo tối ưu hóa kết nối.
+        *   *(Lưu ý: `java.util.logging.Logger` cũng hoạt động theo cơ chế Singleton thông qua `LogManager`.)*
+    *   **Lợi ích**: Ngăn chặn lãng phí tài nguyên, đảm bảo tính nhất quán toàn cục của các tài nguyên dùng chung và đơn giản hóa việc quản lý trạng thái.
 
-Lý do: Cho phép thay đổi thuật toán xử lý giao dịch, kiểm tra bảo mật, hoặc tính phí giao dịch mà không sửa code lớp sử dụng.
-Lợi ích: Dễ mở rộng, thay đổi logic runtime linh hoạt.
-Observer
+*   **Observer** 👁️
+    *   **Điểm**: **2 điểm**
+    *   **Mô tả**: `BankService` đóng vai trò là `Subject`, thông báo các sự kiện giao dịch (`TransactionEvent`) cho các `Observer` đã đăng ký (ví dụ: `ThreadTrackerGUI`). `ThreadTrackerGUI` cập nhật giao diện người dùng dựa trên các sự kiện này.
+    *   **Lợi ích**: Tách biệt logic cập nhật giao diện/log khỏi logic nghiệp vụ cốt lõi, tăng tính linh hoạt, dễ bảo trì và mở rộng.
 
-Lý do: Theo dõi thay đổi trạng thái tài khoản, giao dịch để cập nhật GUI hoặc log.
-Lợi ích: Tách biệt logic cập nhật giao diện/log khỏi logic nghiệp vụ, dễ bảo trì.
-Command
+*   **Template Method** 📝
+    *   **Điểm**: **1.5 điểm**
+    *   **Mô tả**: `SingleAccTxTemplate` định nghĩa một khung xương (template) cho thuật toán xử lý các giao dịch một tài khoản (gửi tiền, rút tiền). Các bước cụ thể (như kiểm tra số dư, cập nhật tài khoản) được triển khai bởi các lớp con (`DepositProcessor`, `WithdrawProcessor`) mà không thay đổi cấu trúc tổng thể của thuật toán.
+    *   **Lợi ích**: Tái sử dụng code, chuẩn hóa quy trình nghiệp vụ, và dễ dàng thêm các loại giao dịch một tài khoản mới.
 
-Lý do: Đóng gói các thao tác như deposit, withdraw, transfer thành các đối tượng lệnh.
-Lợi ích: Dễ undo/redo, xếp hàng (queue) giao dịch, log lịch sử thao tác.
-Template Method
+*   **Builder** 🏗️
+    *   **Điểm**: **1 điểm**
+    *   **Mô tả**: Được sử dụng để tạo các đối tượng phức tạp như `Account` và `TransactionEvent` với nhiều thuộc tính tùy chọn hoặc bắt buộc một cách rõ ràng và dễ đọc.
+    *   **Lợi ích**: Cải thiện khả năng đọc và bảo trì code, tránh các constructor dài dòng và khó hiểu, cho phép tạo đối tượng theo từng bước.
 
-Lý do: Định nghĩa khung xử lý giao dịch, cho phép các bước cụ thể (kiểm tra, ghi log, commit) được override ở subclass.
-Lợi ích: Tái sử dụng code, chuẩn hóa quy trình nghiệp vụ.
-Decorator
-
-Lý do: Thêm chức năng cho Account hoặc Transaction (ví dụ: logging, kiểm tra bảo mật) mà không sửa code gốc.
-Lợi ích: Mở rộng chức năng linh hoạt, không ảnh hưởng class chính.
-Adapter
-
-Lý do: Kết nối với các hệ thống bên ngoài hoặc API khác mà interface không tương thích (ví dụ: chuyển đổi giữa các loại database hoặc hệ thống thanh toán).
-Lợi ích: Tăng khả năng tích hợp, giảm phụ thuộc vào code bên ngoài.
-Builder
-
-Lý do: Tạo các đối tượng phức tạp như Account, Transaction với nhiều thuộc tính tuỳ chọn.
-Lợi ích: Code rõ ràng, dễ đọc, tránh constructor dài dòng.
-```
-
+---
 
 ### **Tổng Kết và Điểm Vượt Qua**
 
-*   **Tổng điểm tối đa**: 22 điểm.
-*   **Điểm vượt qua**: **15 điểm**.
+*   **Tổng điểm tối đa**: **30.5 điểm** (22 điểm từ yêu cầu chức năng + 8.5 điểm từ Design Patterns).
+*   **Điểm vượt qua**: **21 điểm**.
 
-Bạn phải đạt được ít nhất 15 điểm để được coi là đã hoàn thành bài tập này một cách xuất sắc. Hãy tập trung vào các yêu cầu "khó" (3 điểm) để đảm bảo bạn đạt được mục tiêu. Chúc bạn thành công! 😊
+Bạn phải đạt được ít nhất 21 điểm để được coi là đã hoàn thành bài tập này một cách xuất sắc. Hãy tập trung vào các yêu cầu "khó" (3 điểm) và việc áp dụng các Design Patterns để đảm bảo bạn đạt được mục tiêu. Chúc bạn thành công! 😊
