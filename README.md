@@ -176,7 +176,7 @@ javac -d bin -cp "lib\*" @sources.txt
 REM 3. Sao chép resources
 xcopy /E /I src\resources bin\resources
 
-REM 4. Tạo/chuẩn bị MANIFEST.MF (tạo bằng notepad hoặc copy file có sẵn)
+REM 4. Tạo/chuẩn bị MANIFEST.MF (tạo bằng notepad hoặc copy file có sẵn).
 
 REM 5. Tạo JAR
 jar cvfm BankSim.jar MANIFEST.MF -C bin .
