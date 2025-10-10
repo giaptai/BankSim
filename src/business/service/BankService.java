@@ -125,8 +125,22 @@ public class BankService implements IBankService, Subject {
     public Future<?> deposit(Integer accountId, double amount) throws InterruptedException, RuntimeException {
         return transactionExecutor.submit(
                 () -> {
+                    this.notifyObservers(
+                            TransactionEvent.builder()
+                                    .currThreadName(Thread.currentThread().getName())
+                                    .type(Type.DEPOSIT.name())
+                                    .fromAccountId(String.valueOf(accountId))
+                                    .toAccountId(null)
+                                    .amount(amount)
+                                    .predictedBalance(-1.0)
+                                    .actualBalance(-1.0)
+                                    .startTime(LocalDateTime.now())
+                                    .status(TransactionStatus.PENDING)
+                                    .message("")
+                                    .build());
                     SingleAccTxTemplate depositProcessor = new DepositProcessor(databaseManager, accountId, amount);
                     try {
+
                         notifyObservers(depositProcessor.execute());
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -143,8 +157,22 @@ public class BankService implements IBankService, Subject {
     public Future<?> withdraw(Integer accountId, double amount) throws InterruptedException, RuntimeException {
         Future<?> fu = transactionExecutor.submit(
                 () -> {
+                    this.notifyObservers(
+                            TransactionEvent.builder()
+                                    .currThreadName(Thread.currentThread().getName())
+                                    .type(Type.WITHDRAW.name())
+                                    .fromAccountId(String.valueOf(accountId))
+                                    .toAccountId(null)
+                                    .amount(amount)
+                                    .predictedBalance(-1.0)
+                                    .actualBalance(-1.0)
+                                    .startTime(LocalDateTime.now())
+                                    .status(TransactionStatus.PENDING)
+                                    .message("")
+                                    .build());
                     SingleAccTxTemplate withdrawProcessor = new WithdrawProcessor(databaseManager, accountId, amount);
                     try {
+
                         notifyObservers(withdrawProcessor.execute());
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();

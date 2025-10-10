@@ -21,6 +21,7 @@ import business.service.transaction.observer.Observer;
 import business.service.transaction.observer.TransactionEvent;
 import resources.Constants;
 import resources.MyExceptions.AccountNotFoundException;
+import resources.TransactionStatus;
 import test.SimRunner;
 
 import java.awt.BorderLayout;
@@ -50,7 +51,9 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
     // Map để lưu trữ tổng số giao dịch đã xử lý bởi mỗi luồng
     private Map<String, Integer> threadTransactionCount;
     // Map để lưu trữ thời gian cập nhật cuối cùng cho mỗi hàng luồng
-    private Map<String, Long> lastUpdateTimes; // Thêm map này
+    private Map<String, Long> lastUpdateTimes;
+    // Map để lưu trữ trạng thái cuối cùng được hiển thị cho mỗi luồng
+    private Map<String, TransactionStatus> lastDisplayedStatus;
 
     private DecimalFormat df = new DecimalFormat("#,##0.00");
     private JTextField tfAccountId;
@@ -73,6 +76,7 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
         threadRowMap = new HashMap<>();
         threadTransactionCount = new HashMap<>();
         lastUpdateTimes = new ConcurrentHashMap<>();
+        lastDisplayedStatus = new ConcurrentHashMap<>();
         initComponents();
     }
 
@@ -308,6 +312,8 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
         model.setRowCount(0);
         threadRowMap.clear();
         threadTransactionCount.clear();
+        lastDisplayedStatus.clear();
+        lastUpdateTimes.clear();
         updateStatus("Starting new test...", Color.BLUE);
 
         String accountIdTx = tfAccountId.getText().trim();
@@ -435,6 +441,7 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
                 model.setValueAt("Idle", rowIdx, 8);
                 int currTransactionCount = threadTransactionCount.getOrDefault(threadId, 0);
                 model.setValueAt(currTransactionCount, rowIdx, 9);
+                lastDisplayedStatus.remove(threadId);
             }
         });
     }
@@ -442,26 +449,55 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
     @Override
     public void update(TransactionEvent event) {
         long currentTime = System.currentTimeMillis();
-        Long lastTime = lastUpdateTimes.get(event.getCurrThreadName());
+        String threadName = event.getCurrThreadName();
+        Long lastUpdateTimeForThread = lastUpdateTimes.get(threadName);
+        TransactionStatus currentEventStatus = event.getStatus();
+        TransactionStatus lastStatusShown = lastDisplayedStatus.get(threadName);
 
-        boolean isFinalStatus = "Completed".equals(event.getStatus().getDisplayName()) || "Failed".equals(event.getStatus().getDisplayName());
-        if (isFinalStatus == true || lastTime == null || (currentTime - lastTime) > Constants.MIN_UPDATE_INTERVAL_MS) {
+        boolean isPendingEvent = (currentEventStatus == TransactionStatus.PENDING);
+        boolean isFinalEvent = (currentEventStatus == TransactionStatus.COMPLETED
+                || currentEventStatus == TransactionStatus.FAILED);
+
+        boolean shouldUpdate = false;
+
+        if (isFinalEvent == true) {
+            shouldUpdate = true;
+        } else if (isPendingEvent == true) {
+            // Cập nhật PENDING nếu:
+            // 1. Đây là sự kiện đầu tiên cho luồng này (lastUpdateTimeForThread == null)
+            // HOẶC
+            // 2. Trạng thái cuối cùng được hiển thị cho luồng này là một trạng thái cuối
+            // cùng (COMPLETED/FAILED),
+            // điều này báo hiệu một giao dịch mới đang bắt đầu.
+            // HOẶC
+            // 3. Đã đủ thời gian trôi qua kể từ lần cập nhật cuối cùng (điều tiết chung cho
+            // PENDING)
+            if (lastUpdateTimeForThread == null ||
+                    (lastStatusShown != null && (lastStatusShown == TransactionStatus.COMPLETED
+                            || lastStatusShown == TransactionStatus.FAILED))
+                    ||
+                    (currentTime - lastUpdateTimeForThread) > Constants.MIN_UPDATE_INTERVAL_MS) {
+                shouldUpdate = true;
+            }
+        }
+
+        if (shouldUpdate) {
             SwingUtilities.invokeLater(() -> {
-                Integer rowIdx = threadRowMap.get(event.getCurrThreadName());
-                if ("Completed".equals(event.getStatus().getDisplayName()) || "Failed".equals(event.getStatus().getDisplayName())) {
-                    threadTransactionCount.merge(event.getCurrThreadName(), 1, (oldVal, newVal) -> oldVal + newVal);
+                Integer rowIdx = threadRowMap.get(threadName);
+                if (isFinalEvent) {
+                    threadTransactionCount.merge(threadName, 1, (oldVal, newVal) -> oldVal + newVal);
                 }
-                int currTransactionCount = threadTransactionCount.getOrDefault(event.getCurrThreadName(), 0);
+                int currTransactionCount = threadTransactionCount.getOrDefault(threadName, 0);
                 Object[] rowData = {
-                        event.getCurrThreadName(),
+                        threadName,
                         event.getType(),
                         event.getFromAccountId(),
                         event.getToAccountId(),
                         df.format(event.getAmount()),
-                        df.format(event.getPredictedBalance()),
+                        event.getPredictedBalance() == -1.0 ? "N/A" : df.format(event.getPredictedBalance()),
                         (event.getActualBalance() == -1.0) ? "N/A" : df.format(event.getActualBalance()),
                         event.getStartTime() != null ? event.getStartTime().format(Constants.FORMATTER) : "N/A",
-                        event.getStatus(),
+                        currentEventStatus.getDisplayName(), // Sử dụng getDisplayName() để hiển thị chuỗi
                         currTransactionCount,
                         event.getMessage() != null && !event.getMessage().isEmpty() ? " (" + event.getMessage() + ") "
                                 : ""
@@ -469,18 +505,19 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
                 if (rowIdx == null) {
                     if (model.getRowCount() < Constants.MAX_THREADS) {
                         model.addRow(rowData);
-                        threadRowMap.put(event.getCurrThreadName(), model.getRowCount() - 1);
+                        threadRowMap.put(threadName, model.getRowCount() - 1);
                     } else {
                         LOGGER.warning(
-                                "Attempted to add more rows than maxThreads for thread: " + event.getCurrThreadName());
+                                "Attempted to add more rows than maxThreads for thread: " + threadName);
                     }
                 } else {
                     for (int i = 0; i < rowData.length; i++) {
                         model.setValueAt(rowData[i], rowIdx, i);
                     }
                 }
+                lastDisplayedStatus.put(threadName, currentEventStatus);
             });
-            lastUpdateTimes.put(event.getCurrThreadName(), currentTime);
+            lastUpdateTimes.put(threadName, currentTime);
         }
     }
 }
