@@ -197,7 +197,7 @@ public class BankService implements IBankService, Subject {
                     double predictedBalance = 0.0;
                     Connection conn = null;
                     try {
-                        if (amount <= 0) {
+                        if (!TransactionValidators.POSITIVE_AMOUNT.isValid(0, amount)) {
                             throw new InvalidAmountException();
                         }
                         if (fromAccountId == toAccountId) {
@@ -231,7 +231,8 @@ public class BankService implements IBankService, Subject {
                                 if (fromAccount == null || toAccount == null) {
                                     throw new AccountNotFoundException();
                                 }
-                                if (fromAccount.getBalance() < amount) {
+
+                                if (!TransactionValidators.SUFFICIENT_FUNDS.isValid(fromAccount.getBalance(), amount)) {
                                     throw new InsufficientFundsException();
                                 }
 
