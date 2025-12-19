@@ -109,6 +109,184 @@ You can experience the BankSim application developed on Render here:
 *   **PostgreSQL DB:** 0.1 CPU, 256 MB RAM
 *   **Web Service (Webswing App):** 0.1 CPU, 512 MB RAM
 
+## 🐳 Docker Deployment with Webswing
+
+### Tổng quan
+BankSim có thể được deploy dưới dạng Docker container sử dụng Webswing để chạy ứng dụng Swing trong trình duyệt web.
+
+### Cấu trúc Project
+```
+webswing/
+├── Dockerfile              # Docker image configuration
+├── jetty.properties        # Jetty web server config
+├── webswing.config         # Webswing application config
+├── apps/
+│   └── BankSim/
+│       ├── BankSim.jar     # Main application JAR
+│       └── lib/            # Dependencies (PostgreSQL, HikariCP, SLF4J)
+├── server/                 # Webswing server files
+└── admin/                  # Webswing admin interface
+```
+
+### Cấu hình Database
+Trước khi build Docker image, cần cấu hình kết nối database trong `src/resources/dbpostgres.properties`:
+
+```properties
+db.type=postgres
+db.driver=org.postgresql.Driver
+db.url=jdbc:postgresql://YOUR_HOST:5432/YOUR_DATABASE
+db.user=YOUR_USERNAME
+db.password=YOUR_PASSWORD
+```
+
+**Lưu ý quan trọng:**
+- File `dbpostgres.properties` sẽ được đóng gói vào `BankSim.jar` khi build
+- Để deploy lên production (Render, AWS, etc.), thay thế các giá trị bằng database credentials thực tế
+- Có thể sử dụng environment variables trong Dockerfile để bảo mật thông tin nhạy cảm
+
+### Các bước Build và Deploy
+
+#### 1. Chuẩn bị BankSim.jar
+Đầu tiên, build BankSim.jar với database configuration phù hợp:
+
+**PowerShell:**
+```powershell
+# Dọn dẹp và build
+Remove-Item -Recurse -Force bin -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path bin
+
+# Compile
+Get-ChildItem src -Recurse -Filter *.java | Select-Object -ExpandProperty FullName | Out-File sources.txt -Encoding UTF8
+javac -d bin -cp "lib/*" -encoding UTF-8 (Get-Content sources.txt)
+
+# Copy resources (bao gồm dbpostgres.properties)
+Copy-Item -Path src\resources -Destination bin -Recurse -Force
+
+# Tạo JAR
+jar cvfm BankSim.jar MANIFEST.MF -C bin .
+
+# Verify resources được đóng gói
+jar tf BankSim.jar | Select-String "resources/dbpostgres.properties"
+```
+
+#### 2. Copy JAR và dependencies vào webswing
+```powershell
+# Copy BankSim.jar và lib vào webswing/apps/BankSim/
+Copy-Item BankSim.jar webswing\apps\BankSim\
+Copy-Item -Recurse lib webswing\apps\BankSim\
+```
+
+#### 3. Build Docker Image
+```bash
+cd webswing
+docker build -t banksim-webswing:latest .
+```
+
+**Docker Image Details:**
+- **Base Image:** `eclipse-temurin:21-jre-jammy` (Java 21 JRE)
+- **Display Server:** Xvfb (X Virtual FrameBuffer for headless Swing apps)
+- **Web Server:** Jetty (embedded in Webswing)
+- **Port:** 8080
+- **Image Size:** ~350-400 MB (lightweight JRE-based)
+
+#### 4. Test Local
+```bash
+docker run -p 8080:8080 banksim-webswing:latest
+```
+
+Truy cập: `http://localhost:8080/banksim`
+
+#### 5. Push to DockerHub
+```bash
+# Tag image
+docker tag banksim-webswing:latest YOUR_DOCKERHUB_USERNAME/banksim-webswing:latest
+
+# Login
+docker login
+
+# Push
+docker push YOUR_DOCKERHUB_USERNAME/banksim-webswing:latest
+```
+
+### Dockerfile Configuration
+
+**Các thành phần chính:**
+
+```dockerfile
+FROM eclipse-temurin:21-jre-jammy
+
+# Install Xvfb và X11 libraries
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    xvfb libxext6 libxi6 libxtst6 libxrender1 libpangoft2-1.0-0
+
+# Copy toàn bộ webswing folder
+COPY . /opt/webswing/
+
+# Environment variables
+ENV WEBSWING_HOME=/opt/webswing
+ENV DISPLAY=:99
+ENV WEBSWING_JAVA_OPTS="-Xmx256M"
+
+# Start Xvfb (background) và Webswing server
+CMD ["./start.sh"]
+```
+
+### Webswing Configuration
+
+File `webswing/webswing.config` cần cấu hình đúng classpath:
+
+```json
+{
+  "/banksim": {
+    "name": "BankSim",
+    "swingConfig": {
+      "homeDir": "${user.dir}/apps/BankSim",
+      "launcherConfig": {
+        "mainClass": "App"
+      },
+      "classPathEntries": [
+        "BankSim.jar",
+        "lib/*.jar"
+      ]
+    }
+  }
+}
+```
+
+### Các vấn đề thường gặp và giải pháp
+
+| Vấn đề | Nguyên nhân | Giải pháp |
+|--------|-------------|-----------|
+| Container stopped immediately | Dockerfile CMD không dùng `exec` | Sử dụng `exec` trong start script |
+| Main class not found | `classPathEntries` không đúng | Kiểm tra `webswing.config` có `BankSim.jar` và `lib/*.jar` |
+| UnsupportedClassVersionError | Java version không khớp | Đảm bảo Dockerfile dùng Java 21 (match với compilation) |
+| Database connection failed | Properties file không được đóng gói | Verify `jar tf BankSim.jar` có `resources/dbpostgres.properties` |
+
+### Environment Variables (Optional - Advanced)
+
+Để bảo mật hơn, có thể dùng environment variables thay vì hardcode trong properties:
+
+**Trong Dockerfile:**
+```dockerfile
+ENV DB_URL=jdbc:postgresql://host:5432/db \
+    DB_USER=username \
+    DB_PASSWORD=password
+```
+
+**Trong code Java:** Đọc từ `System.getenv()` thay vì properties file.
+
+### Render Deployment
+
+Để deploy lên Render:
+1. Push Docker image lên DockerHub
+2. Tạo Web Service mới trên Render
+3. Chọn "Deploy from Docker image"
+4. Nhập image URL: `YOUR_USERNAME/banksim-webswing:latest`
+5. Set port: `8080`
+6. Configure resources: 0.1 CPU, 512 MB RAM
+
+**Lưu ý:** Đảm bảo database PostgreSQL trên Render đã được tạo và connection string được cập nhật trong `dbpostgres.properties` trước khi build JAR.
+
 ## 🛠️ How to Run the Project
 
 ### Prerequisites:
@@ -191,7 +369,7 @@ java -jar BankSim.jar
 Ghi chú ngắn:
 - Hãy chắc chắn thư mục `lib` (các JAR phụ thuộc) nằm cùng cấp với `BankSim.jar`.
 - Kiểm tra `bin\resources\dbpostgres.properties` trước khi tạo JAR; nếu không có, ứng dụng sẽ báo lỗi khi chạy.
-- Nếu gặp lỗi thiếu class khi javac, đảm bảo các JAR phụ thuộc trong `lib` đúng phiên bản và đường dẫn chính xác trong `MANIFEST.MF`.
+- Nếu gặp lỗi thiếu class khi javac, đảm bảo các JAR phụ thuộc trong `lib` đúng phiên bản và đường dẫn chính xác trong `MANIFEST.MF`. -> nghĩa là copy thư mục lib vào theo đúng MENIFEST thể hiện ở Class-Path
 
 ## 📂 Project Structure
 
