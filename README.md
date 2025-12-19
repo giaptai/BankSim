@@ -196,6 +196,10 @@ docker run -p 8080:8080 banksim-webswing:latest
 
 Truy cập: `http://localhost:8080/banksim`
 
+**Thông tin đăng nhập Webswing (áp dụng cho cả Local và Render):**
+- **Username:** `admin`
+- **Password:** `pwd`
+
 #### 5. Push to DockerHub
 ```bash
 # Tag image
