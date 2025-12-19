@@ -109,6 +109,10 @@ You can experience the BankSim application developed on Render here:
 *   **PostgreSQL DB:** 0.1 CPU, 256 MB RAM
 *   **Web Service (Webswing App):** 0.1 CPU, 512 MB RAM
 
+**Images:**
+![Demo live](media/img-demo-live.png)
+
+
 ## 🐳 Docker Deployment with Webswing
 
 ### Tổng quan
