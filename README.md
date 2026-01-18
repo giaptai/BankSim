@@ -151,27 +151,7 @@ db.password=YOUR_PASSWORD
 ### Các bước Build và Deploy
 
 #### 1. Chuẩn bị BankSim.jar
-Đầu tiên, build BankSim.jar với database configuration phù hợp:
-
-**PowerShell:**
-```powershell
-# Dọn dẹp và build
-Remove-Item -Recurse -Force bin -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path bin
-
-# Compile
-Get-ChildItem src -Recurse -Filter *.java | Select-Object -ExpandProperty FullName | Out-File sources.txt -Encoding UTF8
-javac -d bin -cp "lib/*" -encoding UTF-8 (Get-Content sources.txt)
-
-# Copy resources (bao gồm dbpostgres.properties)
-Copy-Item -Path src\resources -Destination bin -Recurse -Force
-
-# Tạo JAR
-jar cvfm BankSim.jar MANIFEST.MF -C bin .
-
-# Verify resources được đóng gói
-jar tf BankSim.jar | Select-String "resources/dbpostgres.properties"
-```
+Xem hướng dẫn chi tiết tại section [How to build jar?](#how-to-build-jar-)
 
 #### 2. Copy JAR và dependencies vào webswing
 ```powershell
@@ -195,7 +175,22 @@ docker build -t banksim-webswing:latest .
 
 #### 4. Test Local
 ```bash
-docker run -p 8080:8080 banksim-webswing:latest
+# Chạy với environment variables
+docker run -p 8080:8080 \
+  -e DB_URL="jdbc:postgresql://your-host:5432/your-database" \
+  -e DB_USERNAME="your-username" \
+  -e DB_PASSWORD="your-password" \
+  banksim-webswing:latest
+
+# Hoặc dùng file .env
+docker run -p 8080:8080 --env-file .env banksim-webswing:latest
+```
+
+**Ví dụ file `.env`:**
+```
+DB_URL=jdbc:postgresql://localhost:5432/banksim
+DB_USERNAME=postgres
+DB_PASSWORD=yourpassword
 ```
 
 Truy cập: `http://localhost:8080/banksim`
@@ -292,8 +287,17 @@ ENV DB_URL=jdbc:postgresql://host:5432/db \
 4. Nhập image URL: `YOUR_USERNAME/banksim-webswing:latest`
 5. Set port: `8080`
 6. Configure resources: 0.1 CPU, 512 MB RAM
+7. **Cấu hình Environment Variables trên Render Dashboard:**
+   - Vào **Dashboard → Service → Environment**
+   - Thêm các biến sau:
 
-**Lưu ý:** Đảm bảo database PostgreSQL trên Render đã được tạo và connection string được cập nhật trong `dbpostgres.properties` trước khi build JAR.
+   | Key | Value |
+   |-----|-------|
+   | `DB_URL` | `jdbc:postgresql://your-host:5432/your-database` |
+   | `DB_USERNAME` | `your-username` |
+   | `DB_PASSWORD` | `your-password` |
+
+**Lưu ý:** Đảm bảo database PostgreSQL trên Render đã được tạo trước khi deploy.
 
 ## 🛠️ How to Run the Project
 
@@ -379,67 +383,3 @@ Ghi chú ngắn:
 - Kiểm tra `bin\resources\dbpostgres.properties` trước khi tạo JAR; nếu không có, ứng dụng sẽ báo lỗi khi chạy.
 - Nếu gặp lỗi thiếu class khi javac, đảm bảo các JAR phụ thuộc trong `lib` đúng phiên bản và đường dẫn chính xác trong `MANIFEST.MF`. -> nghĩa là copy thư mục lib vào theo đúng MENIFEST thể hiện ở Class-Path
 
-## 📂 Project Structure
-
-```text
-src/
-├── App.java                      # Main entry point of the application
-├── business/
-│   ├── service/
-│   │   ├── BankService.java      # Core business logic, Subject, Singleton instance
-│   │   ├── IBankService.java     # Interface for BankService (DIP)
-│   │   └── transaction/
-│   │       ├── observer/         # Observer Pattern components
-│   │       │   ├── Observer.java
-│   │       │   ├── Subject.java
-│   │       │   └── TransactionEvent.java
-│   │       └── template/         # Template Method Pattern components
-│   │           ├── DepositProcessor.java
-│   │           ├── SingleAccTxTemplate.java
-│   │           └── WithdrawProcessor.java
-├── data/
-│   ├── DatabaseManagerFactory.java # Factory Method (with Registry Pattern)
-│   ├── IDatabaseManager.java       # Database abstraction interface
-│   ├── MySQLDatabaseManage.java    # MySQL implementation (Singleton instance)
-│   ├── PostgreSQLDatabaseManage.java # PostgreSQL implementation (Singleton instance)
-│   └── models/
-│       ├── Account.java            # Account data model (Builder Pattern)
-│       └── Transaction.java        # Transaction data model
-├── presentation/
-│   ├── console/
-│   │   └── Menu.java             # Console user interface
-│   ├── controller/
-│   │   ├── BankController.java
-│   │   └── SwingBankController.java
-│   └── ui/
-│       ├── BankSwingGUI.java     # Main Swing GUI frame
-│       ├── ThreadTrackerGUI.java # Real-time transaction tracker GUI (Observer)
-│       └── panels/               # Individual Swing panels for different operations
-│           ├── DepositPanel.java
-│           ├── MainMenuPanel.java
-│           ├── OpenAccountPanel.java
-│           ├── TransferPanel.java
-│           ├── ViewBalancePanel.java
-│           ├── ViewTransactionHistoryPanel.java
-│           └── WithdrawPanel.java
-├── resources/
-│   ├── application-sample.properties
-│   ├── Constants.java            # Global constants
-│   ├── dbmysql.properties
-│   ├── dbpostgres.properties
-│   ├── ddl.sql                   # Database schema definition (DDL)
-│   ├── dml.sql                   # Sample data script
-│   ├── logging.properties        # Logging configuration
-│   ├── MyExceptions.java         # Custom exception classes
-│   ├── TransactionStatus.java    # Enum for transaction statuses
-│   ├── Type.java                 # Enum for transaction types
-│   └── annotations/              # Custom annotations
-│       ├── Builder.java
-│       ├── Overloading.java
-│       ├── Repository.java
-│       ├── Service.java
-│       └── Test.java
-└── test/
-    ├── GUIWithdrawTest.java
-    └── SimRunner.java              # Multithreaded simulation and testing
-```
