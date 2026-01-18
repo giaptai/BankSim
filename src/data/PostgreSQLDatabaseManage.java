@@ -15,7 +15,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 
 import java.time.LocalDateTime;
-
+import java.util.Optional;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,6 +27,7 @@ import data.models.Account;
 import resources.annotations.Overloading;
 import resources.Constants;
 import resources.Type;
+import java.lang.System;
 
 public class PostgreSQLDatabaseManage implements IDatabaseManager {
     private static Logger LOGGER = Logger.getLogger(PostgreSQLDatabaseManage.class.getName());
@@ -157,11 +158,22 @@ public class PostgreSQLDatabaseManage implements IDatabaseManager {
 
     @Override
     public void initConnectionPool() throws ClassNotFoundException {
+        // get from System env
+        String jdbcUrl = Optional.ofNullable(System.getenv("DB_URL"))
+                .or(() -> Optional.ofNullable(System.getProperty("DB_URL")))
+                .orElse(props.getProperty("db.url"));
+        String jdbcUsername = Optional.ofNullable(System.getenv("DB_USERNAME"))
+                .or(() -> Optional.ofNullable(System.getProperty("DB_USERNAME")))
+                .orElse(props.getProperty("db.user"));
+        String jdbcPassword = Optional.ofNullable(System.getenv("DB_PASSWORD"))
+                .or(() -> Optional.ofNullable(System.getProperty("DB_PASSWORD")))
+                .orElse(props.getProperty("db.password"));
+
         Class.forName(props.getProperty("db.driver"));
         HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(props.getProperty("db.url"));
-        hikariConfig.setUsername(props.getProperty("db.user"));
-        hikariConfig.setPassword(props.getProperty("db.password"));
+        hikariConfig.setJdbcUrl(jdbcUrl);
+        hikariConfig.setUsername(jdbcUsername);
+        hikariConfig.setPassword(jdbcPassword);
         // optional
         hikariConfig.addDataSourceProperty("cachePrepStmts", "true");
         hikariConfig.addDataSourceProperty("prepStmtCacheSize", "250");
