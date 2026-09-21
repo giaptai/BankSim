@@ -2,21 +2,17 @@ package business.service.transaction.template;
 
 import java.sql.SQLException;
 
-import business.service.BankService;
 import data.IDatabaseManager;
 import data.models.Transaction;
-import presentation.ui.ThreadTrackerGUI;
 import resources.MyExceptions.InsufficientFundsException;
 import resources.MyExceptions.InvalidAmountException;
 import resources.Type;
 
 public class WithdrawProcessor extends SingleAccTxTemplate {
 
-    public WithdrawProcessor(IDatabaseManager databaseManager, ThreadTrackerGUI trackerGUI, BankService bankService,
+    public WithdrawProcessor(IDatabaseManager databaseManager,
             int accountId, double amount) {
-        super(databaseManager, trackerGUI, bankService);
-        this.accountId = accountId;
-        this.amount = amount;
+        super(databaseManager,accountId, amount);
     }
 
     @Override

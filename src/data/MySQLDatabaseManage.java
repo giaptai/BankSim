@@ -13,6 +13,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.Properties;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,13 +22,22 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import data.models.Account;
 import resources.annotations.Overloading;
-
+import resources.Constants;
 import resources.Type;
 
 public class MySQLDatabaseManage implements IDatabaseManager {
     private static Logger LOGGER = Logger.getLogger(MySQLDatabaseManage.class.getName());
     private Properties props;
     private HikariDataSource hikariDataSource;
+
+    static {
+        DatabaseManagerFactory.register(Constants.DB_TYPE_MYSQL, new Supplier<IDatabaseManager>() {
+            @Override
+            public MySQLDatabaseManage get() {
+                return new MySQLDatabaseManage();
+            }
+        });
+    }
 
     // load properties first
     {
@@ -118,7 +128,7 @@ public class MySQLDatabaseManage implements IDatabaseManager {
         hikariConfig.setPassword(props.getProperty("db.password"));
         // optional
         hikariConfig.addDataSourceProperty("cachePrepStmts", true);
-        hikariConfig.addDataSourceProperty("addDataSourceProperty", 250);
+        hikariConfig.addDataSourceProperty("preStmtCacheSize", "250");
         hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
         hikariConfig.setMaximumPoolSize(100);
         hikariConfig.setMinimumIdle(25);

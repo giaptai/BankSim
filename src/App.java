@@ -7,12 +7,13 @@ import business.service.BankService;
 import data.DatabaseManagerFactory;
 import data.IDatabaseManager;
 import presentation.ui.ThreadTrackerGUI;
+import resources.Constants;
 
 public class App {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            IDatabaseManager databaseManager = DatabaseManagerFactory.create("postgres");
             ThreadTrackerGUI trackerGUI = new ThreadTrackerGUI();
+            IDatabaseManager databaseManager = DatabaseManagerFactory.create(Constants.DB_TYPE_POSTGRES);
             BankService bankService = new BankService(databaseManager, trackerGUI);
 
             trackerGUI.setBankService(bankService);

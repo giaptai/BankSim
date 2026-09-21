@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS account (
     account_id SERIAL PRIMARY KEY,
-    owner_name VARCHAR(150) NOT NULL DEFAULT '',
+    owner_name VARCHAR(150) UNIQUE,
     balance DOUBLE PRECISION NOT NULL DEFAULT 0.0
 );
 CREATE TABLE IF NOT EXISTS transactions (
