@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Ping Render
         run: |
-          curl -fsS --max-time 30 https://banksim-webswing-0-1.onrender.com/ > /dev/null \
+          curl -fsS --max-time 180 https://banksim-webswing-0-1.onrender.com/ > /dev/null \
             && echo "OK"
 
 
