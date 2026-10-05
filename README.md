@@ -167,11 +167,13 @@ docker build -t banksim-webswing:latest .
 ```
 
 **Docker Image Details:**
-- **Base Image:** `eclipse-temurin:21-jre-jammy` (Java 21 JRE)
+- **Base Image:** `alpine:3.24.2`
+- **Java Runtime:** Custom Java 21 runtime được tạo bằng `jlink`
+- **Build Type:** Multi-stage build (Java builder + runtime)
 - **Display Server:** Xvfb (X Virtual FrameBuffer for headless Swing apps)
 - **Web Server:** Jetty (embedded in Webswing)
 - **Port:** 8080
-- **Image Size:** ~350-400 MB (lightweight JRE-based)
+- **Image Size:** ~570.23 MB
 
 #### 4. Test Local
 ```bash
@@ -216,23 +218,62 @@ docker push YOUR_DOCKERHUB_USERNAME/banksim-webswing:latest
 **Các thành phần chính:**
 
 ```dockerfile
-FROM eclipse-temurin:21-jre-jammy
+# Stage 1: Tạo Java 21 runtime tối giản
+FROM alpine:3.24.2 AS java-builder
 
-# Install Xvfb và X11 libraries
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    xvfb libxext6 libxi6 libxtst6 libxrender1 libpangoft2-1.0-0
+RUN apk add --no-cache openjdk21-jdk binutils
 
-# Copy toàn bộ webswing folder
-COPY . /opt/webswing/
+RUN jlink \
+    --add-modules \
+java.base,java.desktop,java.logging,java.management,java.naming,java.sql,java.xml,java.instrument,java.security.jgss,java.prefs,jdk.unsupported,jdk.jsobject,jdk.crypto.ec,jdk.management,jdk.zipfs,jdk.accessibility \
+    --strip-debug \
+    --no-man-pages \
+    --no-header-files \
+    --compress=zip-6 \
+    --output /custom-jre
 
-# Environment variables
-ENV WEBSWING_HOME=/opt/webswing
-ENV DISPLAY=:99
-ENV WEBSWING_JAVA_OPTS="-Xmx256M"
+# Stage 2: Image chạy ứng dụng
+FROM alpine:3.24.2
 
-# Start Xvfb (background) và Webswing server
+RUN apk add --no-cache \
+    xvfb fontconfig ttf-dejavu libxext libxi libxtst libxrender
+
+COPY --from=java-builder /custom-jre /opt/java
+
+ENV JAVA_HOME=/opt/java \
+    PATH="/opt/java/bin:$PATH" \
+    WEBSWING_HOME=/webswing \
+    DISPLAY=:99 \
+    WEBSWING_OPTS="-h 0.0.0.0 -j /webswing/jetty.properties -serveradmin -pfa /webswing/admin/webswing-admin.properties -adminctx /admin -aw admin/webswing-admin-server.war" \
+    WEBSWING_JAVA_OPTS="-Xms32M -Xmx160M -XX:+UseSerialGC -XX:ActiveProcessorCount=1 -Djava.net.preferIPv4Stack=true -Dwebswing.admin.url=http://localhost:8080/admin"
+
+WORKDIR /webswing
+
+# Chỉ copy các thành phần Webswing cần thiết
+COPY server/webswing-jetty-launcher.jar server/
+COPY webswing-server.war .
+COPY admin admin/
+COPY api api/
+COPY apps/BankSim apps/BankSim/
+COPY apps/selector apps/selector/
+COPY fonts fonts/
+COPY lang lang/
+COPY security security/
+COPY datastore datastore/
+COPY webswing.config webswing.properties jetty.properties ./
+
+RUN mkdir -p /etc/service/xvfb /etc/service/webswing && \
+    printf '#!/bin/sh\nexec Xvfb :99\n' > /etc/service/xvfb/run && \
+    printf '#!/bin/sh\ncd /webswing\nexec java $WEBSWING_JAVA_OPTS -jar /webswing/server/webswing-jetty-launcher.jar $WEBSWING_OPTS\n' > /etc/service/webswing/run && \
+    printf '#!/bin/sh\nrm -f /tmp/.X99-lock\n/etc/service/xvfb/run &\nexec /etc/service/webswing/run\n' > /webswing/start.sh && \
+    chmod +x /etc/service/xvfb/run /etc/service/webswing/run /webswing/start.sh
+
+EXPOSE 8080
 CMD ["./start.sh"]
 ```
+
+Stage `java-builder` chỉ dùng để tạo custom JRE và không xuất hiện trong image cuối.
+Stage runtime chứa custom JRE, Xvfb, các thư viện X11 và những file Webswing cần để chạy BankSim.
 
 ### Webswing Configuration
 
