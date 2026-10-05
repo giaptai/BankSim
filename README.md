@@ -151,27 +151,7 @@ db.password=YOUR_PASSWORD
 ### Các bước Build và Deploy
 
 #### 1. Chuẩn bị BankSim.jar
-Đầu tiên, build BankSim.jar với database configuration phù hợp:
-
-**PowerShell:**
-```powershell
-# Dọn dẹp và build
-Remove-Item -Recurse -Force bin -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path bin
-
-# Compile
-Get-ChildItem src -Recurse -Filter *.java | Select-Object -ExpandProperty FullName | Out-File sources.txt -Encoding UTF8
-javac -d bin -cp "lib/*" -encoding UTF-8 (Get-Content sources.txt)
-
-# Copy resources (bao gồm dbpostgres.properties)
-Copy-Item -Path src\resources -Destination bin -Recurse -Force
-
-# Tạo JAR
-jar cvfm BankSim.jar MANIFEST.MF -C bin .
-
-# Verify resources được đóng gói
-jar tf BankSim.jar | Select-String "resources/dbpostgres.properties"
-```
+Xem hướng dẫn chi tiết tại section [How to build jar?](#how-to-build-jar-)
 
 #### 2. Copy JAR và dependencies vào webswing
 ```powershell
@@ -187,15 +167,32 @@ docker build -t banksim-webswing:latest .
 ```
 
 **Docker Image Details:**
-- **Base Image:** `eclipse-temurin:21-jre-jammy` (Java 21 JRE)
+- **Base Image:** `alpine:3.24.2`
+- **Java Runtime:** Custom Java 21 runtime được tạo bằng `jlink`
+- **Build Type:** Multi-stage build (Java builder + runtime)
 - **Display Server:** Xvfb (X Virtual FrameBuffer for headless Swing apps)
 - **Web Server:** Jetty (embedded in Webswing)
 - **Port:** 8080
-- **Image Size:** ~350-400 MB (lightweight JRE-based)
+- **Image Size:** ~570.23 MB
 
 #### 4. Test Local
 ```bash
-docker run -p 8080:8080 banksim-webswing:latest
+# Chạy với environment variables
+docker run -p 8080:8080 \
+  -e DB_URL="jdbc:postgresql://your-host:5432/your-database" \
+  -e DB_USERNAME="your-username" \
+  -e DB_PASSWORD="your-password" \
+  banksim-webswing:latest
+
+# Hoặc dùng file .env
+docker run -p 8080:8080 --env-file .env banksim-webswing:latest
+```
+
+**Ví dụ file `.env`:**
+```
+DB_URL=jdbc:postgresql://localhost:5432/banksim
+DB_USERNAME=postgres
+DB_PASSWORD=yourpassword
 ```
 
 Truy cập: `http://localhost:8080/banksim`
@@ -221,23 +218,62 @@ docker push YOUR_DOCKERHUB_USERNAME/banksim-webswing:latest
 **Các thành phần chính:**
 
 ```dockerfile
-FROM eclipse-temurin:21-jre-jammy
+# Stage 1: Tạo Java 21 runtime tối giản
+FROM alpine:3.24.2 AS java-builder
 
-# Install Xvfb và X11 libraries
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    xvfb libxext6 libxi6 libxtst6 libxrender1 libpangoft2-1.0-0
+RUN apk add --no-cache openjdk21-jdk binutils
 
-# Copy toàn bộ webswing folder
-COPY . /opt/webswing/
+RUN jlink \
+    --add-modules \
+java.base,java.desktop,java.logging,java.management,java.naming,java.sql,java.xml,java.instrument,java.security.jgss,java.prefs,jdk.unsupported,jdk.jsobject,jdk.crypto.ec,jdk.management,jdk.zipfs,jdk.accessibility \
+    --strip-debug \
+    --no-man-pages \
+    --no-header-files \
+    --compress=zip-6 \
+    --output /custom-jre
 
-# Environment variables
-ENV WEBSWING_HOME=/opt/webswing
-ENV DISPLAY=:99
-ENV WEBSWING_JAVA_OPTS="-Xmx256M"
+# Stage 2: Image chạy ứng dụng
+FROM alpine:3.24.2
 
-# Start Xvfb (background) và Webswing server
+RUN apk add --no-cache \
+    xvfb fontconfig ttf-dejavu libxext libxi libxtst libxrender
+
+COPY --from=java-builder /custom-jre /opt/java
+
+ENV JAVA_HOME=/opt/java \
+    PATH="/opt/java/bin:$PATH" \
+    WEBSWING_HOME=/webswing \
+    DISPLAY=:99 \
+    WEBSWING_OPTS="-h 0.0.0.0 -j /webswing/jetty.properties -serveradmin -pfa /webswing/admin/webswing-admin.properties -adminctx /admin -aw admin/webswing-admin-server.war" \
+    WEBSWING_JAVA_OPTS="-Xms32M -Xmx160M -XX:+UseSerialGC -XX:ActiveProcessorCount=1 -Djava.net.preferIPv4Stack=true -Dwebswing.admin.url=http://localhost:8080/admin"
+
+WORKDIR /webswing
+
+# Chỉ copy các thành phần Webswing cần thiết
+COPY server/webswing-jetty-launcher.jar server/
+COPY webswing-server.war .
+COPY admin admin/
+COPY api api/
+COPY apps/BankSim apps/BankSim/
+COPY apps/selector apps/selector/
+COPY fonts fonts/
+COPY lang lang/
+COPY security security/
+COPY datastore datastore/
+COPY webswing.config webswing.properties jetty.properties ./
+
+RUN mkdir -p /etc/service/xvfb /etc/service/webswing && \
+    printf '#!/bin/sh\nexec Xvfb :99\n' > /etc/service/xvfb/run && \
+    printf '#!/bin/sh\ncd /webswing\nexec java $WEBSWING_JAVA_OPTS -jar /webswing/server/webswing-jetty-launcher.jar $WEBSWING_OPTS\n' > /etc/service/webswing/run && \
+    printf '#!/bin/sh\nrm -f /tmp/.X99-lock\n/etc/service/xvfb/run &\nexec /etc/service/webswing/run\n' > /webswing/start.sh && \
+    chmod +x /etc/service/xvfb/run /etc/service/webswing/run /webswing/start.sh
+
+EXPOSE 8080
 CMD ["./start.sh"]
 ```
+
+Stage `java-builder` chỉ dùng để tạo custom JRE và không xuất hiện trong image cuối.
+Stage runtime chứa custom JRE, Xvfb, các thư viện X11 và những file Webswing cần để chạy BankSim.
 
 ### Webswing Configuration
 
@@ -292,8 +328,17 @@ ENV DB_URL=jdbc:postgresql://host:5432/db \
 4. Nhập image URL: `YOUR_USERNAME/banksim-webswing:latest`
 5. Set port: `8080`
 6. Configure resources: 0.1 CPU, 512 MB RAM
+7. **Cấu hình Environment Variables trên Render Dashboard:**
+   - Vào **Dashboard → Service → Environment**
+   - Thêm các biến sau:
 
-**Lưu ý:** Đảm bảo database PostgreSQL trên Render đã được tạo và connection string được cập nhật trong `dbpostgres.properties` trước khi build JAR.
+   | Key | Value |
+   |-----|-------|
+   | `DB_URL` | `jdbc:postgresql://your-host:5432/your-database` |
+   | `DB_USERNAME` | `your-username` |
+   | `DB_PASSWORD` | `your-password` |
+
+**Lưu ý:** Đảm bảo database PostgreSQL trên Render đã được tạo trước khi deploy.
 
 ## 🛠️ How to Run the Project
 
@@ -379,67 +424,3 @@ Ghi chú ngắn:
 - Kiểm tra `bin\resources\dbpostgres.properties` trước khi tạo JAR; nếu không có, ứng dụng sẽ báo lỗi khi chạy.
 - Nếu gặp lỗi thiếu class khi javac, đảm bảo các JAR phụ thuộc trong `lib` đúng phiên bản và đường dẫn chính xác trong `MANIFEST.MF`. -> nghĩa là copy thư mục lib vào theo đúng MENIFEST thể hiện ở Class-Path
 
-## 📂 Project Structure
-
-```text
-src/
-├── App.java                      # Main entry point of the application
-├── business/
-│   ├── service/
-│   │   ├── BankService.java      # Core business logic, Subject, Singleton instance
-│   │   ├── IBankService.java     # Interface for BankService (DIP)
-│   │   └── transaction/
-│   │       ├── observer/         # Observer Pattern components
-│   │       │   ├── Observer.java
-│   │       │   ├── Subject.java
-│   │       │   └── TransactionEvent.java
-│   │       └── template/         # Template Method Pattern components
-│   │           ├── DepositProcessor.java
-│   │           ├── SingleAccTxTemplate.java
-│   │           └── WithdrawProcessor.java
-├── data/
-│   ├── DatabaseManagerFactory.java # Factory Method (with Registry Pattern)
-│   ├── IDatabaseManager.java       # Database abstraction interface
-│   ├── MySQLDatabaseManage.java    # MySQL implementation (Singleton instance)
-│   ├── PostgreSQLDatabaseManage.java # PostgreSQL implementation (Singleton instance)
-│   └── models/
-│       ├── Account.java            # Account data model (Builder Pattern)
-│       └── Transaction.java        # Transaction data model
-├── presentation/
-│   ├── console/
-│   │   └── Menu.java             # Console user interface
-│   ├── controller/
-│   │   ├── BankController.java
-│   │   └── SwingBankController.java
-│   └── ui/
-│       ├── BankSwingGUI.java     # Main Swing GUI frame
-│       ├── ThreadTrackerGUI.java # Real-time transaction tracker GUI (Observer)
-│       └── panels/               # Individual Swing panels for different operations
-│           ├── DepositPanel.java
-│           ├── MainMenuPanel.java
-│           ├── OpenAccountPanel.java
-│           ├── TransferPanel.java
-│           ├── ViewBalancePanel.java
-│           ├── ViewTransactionHistoryPanel.java
-│           └── WithdrawPanel.java
-├── resources/
-│   ├── application-sample.properties
-│   ├── Constants.java            # Global constants
-│   ├── dbmysql.properties
-│   ├── dbpostgres.properties
-│   ├── ddl.sql                   # Database schema definition (DDL)
-│   ├── dml.sql                   # Sample data script
-│   ├── logging.properties        # Logging configuration
-│   ├── MyExceptions.java         # Custom exception classes
-│   ├── TransactionStatus.java    # Enum for transaction statuses
-│   ├── Type.java                 # Enum for transaction types
-│   └── annotations/              # Custom annotations
-│       ├── Builder.java
-│       ├── Overloading.java
-│       ├── Repository.java
-│       ├── Service.java
-│       └── Test.java
-└── test/
-    ├── GUIWithdrawTest.java
-    └── SimRunner.java              # Multithreaded simulation and testing
-```
