@@ -191,7 +191,7 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
 
         gbc.gridx = 6;
         gbc.gridy = 0;
-        String[] options = Arrays.asList(resources.Type.values()).stream().map(Enum::name).toArray(String[]::new);
+        String[] options = Arrays.asList(resources.MessageType.values()).stream().map(Enum::name).toArray(String[]::new);
         boxType = new JComboBox<>(options);
         // Đặt preferred, minimum và maximum size (cố định chiều rộng cho ComboBox)
         boxType.setPreferredSize(new Dimension(100, componentHeight));
@@ -201,7 +201,7 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String selectedType = (String) boxType.getSelectedItem();
-                boolean isTransfer = resources.Type.TRANSFER.name().equals(selectedType);
+                boolean isTransfer = resources.MessageType.TRANSFER.name().equals(selectedType);
                 labelToAccountId.setVisible(isTransfer);
                 tfToAccountId.setVisible(isTransfer);
                 // Cập nhật lại panel để bố cục được tính toán lại
@@ -336,7 +336,7 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
         }
         int fromAccountId = Integer.parseInt(tfAccountId.getText());
         double amountPerTransaction = Double.parseDouble(tfAmount.getText());
-        resources.Type transactionType = resources.Type.valueOf((String) boxType.getSelectedItem());
+        resources.MessageType transactionType = resources.MessageType.valueOf((String) boxType.getSelectedItem());
         int totalTransaction = (Integer) boxTrans.getSelectedItem();
         if (amountPerTransaction <= 0) {
             updateStatus("Error: Please enter amount greater than 0", Color.RED);
@@ -358,7 +358,7 @@ public class ThreadTrackerGUI extends JFrame implements Observer {
             }
             new Thread(() -> {
                 SimRunner runner = new SimRunner(bankService);
-                if (resources.Type.TRANSFER == transactionType) {
+                if (resources.MessageType.TRANSFER == transactionType) {
                     try {
                         int toAccountId = Integer.parseInt(tfToAccountId.getText());
                         if (fromAccountId == toAccountId) {

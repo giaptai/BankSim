@@ -1,15 +1,15 @@
 package business.service.transaction.template;
 
 import java.sql.SQLException;
-import data.IDatabaseManager;
-import data.models.Transaction;
+import data.Group;
+import data.models.ClientHandler;
 import resources.MyExceptions.InsufficientFundsException;
 import resources.MyExceptions.InvalidAmountException;
-import resources.Type;
+import resources.MessageType;
 
 public class DepositProcessor extends SingleAccTxTemplate {
 
-    public DepositProcessor(IDatabaseManager databaseManager, int accountId, double amount) {
+    public DepositProcessor(Group databaseManager, int accountId, double amount) {
         super(databaseManager, accountId, amount);
     }
 
@@ -33,12 +33,12 @@ public class DepositProcessor extends SingleAccTxTemplate {
 
     @Override
     protected void saveTransaction() throws SQLException {
-        databaseManager.saveTransaction(conn, new Transaction(accountId, getTransactionType(), amount));
+        databaseManager.saveTransaction(conn, new ClientHandler(accountId, getTransactionType(), amount));
     }
 
     @Override
-    protected Type getTransactionType() {
-        return Type.DEPOSIT;
+    protected MessageType getTransactionType() {
+        return MessageType.DEPOSIT;
     }
 
 }

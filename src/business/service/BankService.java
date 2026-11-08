@@ -26,9 +26,9 @@ import business.service.transaction.observer.TransactionEvent;
 import business.service.transaction.template.DepositProcessor;
 import business.service.transaction.template.SingleAccTxTemplate;
 import business.service.transaction.template.WithdrawProcessor;
-import data.IDatabaseManager;
+import data.Group;
 import data.models.Account;
-import data.models.Transaction;
+import data.models.ClientHandler;
 
 import java.util.concurrent.TimeUnit;
 
@@ -36,7 +36,7 @@ import resources.Constants;
 import resources.MyExceptions;
 import resources.TransactionStatus;
 import resources.MyExceptions.InvalidAmountException;
-import resources.Type;
+import resources.MessageType;
 import resources.MyExceptions.AccountNotFoundException;
 import resources.MyExceptions.InsufficientFundsException;
 import resources.annotations.Service;
@@ -45,18 +45,18 @@ import resources.annotations.Service;
 public class BankService implements IBankService, Subject {
     private static Logger LOGGER = Logger.getLogger(BankService.class.getName());
     private static ExecutorService transactionExecutor;
-    private IDatabaseManager databaseManager;
+    private Group databaseManager;
     private final Map<Integer, Lock> accountLocks = new ConcurrentHashMap<>();
     private List<Observer> trackerGUIObservers = new CopyOnWriteArrayList<>();
 
-    private BankService(IDatabaseManager databaseManager) {
+    private BankService(Group databaseManager) {
         if (transactionExecutor == null) {
             transactionExecutor = Executors.newFixedThreadPool(Constants.MAX_THREADS);
         }
         this.databaseManager = databaseManager;
     }
 
-    public BankService(IDatabaseManager databaseManager, Observer trackerGUI) {
+    public BankService(Group databaseManager, Observer trackerGUI) {
         this(databaseManager);
         attach(trackerGUI);
     }
@@ -128,7 +128,7 @@ public class BankService implements IBankService, Subject {
                     this.notifyObservers(
                             TransactionEvent.builder()
                                     .currThreadName(Thread.currentThread().getName())
-                                    .type(Type.DEPOSIT.name())
+                                    .type(MessageType.DEPOSIT.name())
                                     .fromAccountId(String.valueOf(accountId))
                                     .toAccountId(null)
                                     .amount(amount)
@@ -160,7 +160,7 @@ public class BankService implements IBankService, Subject {
                     this.notifyObservers(
                             TransactionEvent.builder()
                                     .currThreadName(Thread.currentThread().getName())
-                                    .type(Type.WITHDRAW.name())
+                                    .type(MessageType.WITHDRAW.name())
                                     .fromAccountId(String.valueOf(accountId))
                                     .toAccountId(null)
                                     .amount(amount)
@@ -242,7 +242,7 @@ public class BankService implements IBankService, Subject {
                                 this.notifyObservers(
                                         TransactionEvent.builder()
                                                 .currThreadName(currThreadName)
-                                                .type(Type.TRANSFER.name())
+                                                .type(MessageType.TRANSFER.name())
                                                 .fromAccountId(String.valueOf(fromAccountId))
                                                 .toAccountId(String.valueOf(toAccountId))
                                                 .amount(amount)
@@ -260,7 +260,7 @@ public class BankService implements IBankService, Subject {
                                 this.notifyObservers(
                                         TransactionEvent.builder()
                                                 .currThreadName(currThreadName)
-                                                .type(Type.TRANSFER.name())
+                                                .type(MessageType.TRANSFER.name())
                                                 .fromAccountId(String.valueOf(fromAccountId))
                                                 .toAccountId(String.valueOf(toAccountId))
                                                 .amount(amount)
@@ -290,7 +290,7 @@ public class BankService implements IBankService, Subject {
                         this.notifyObservers(
                                 TransactionEvent.builder()
                                         .currThreadName(currThreadName)
-                                        .type(Type.TRANSFER.name())
+                                        .type(MessageType.TRANSFER.name())
                                         .fromAccountId(String.valueOf(fromAccountId))
                                         .toAccountId(String.valueOf(toAccountId))
                                         .amount(amount)
@@ -315,7 +315,7 @@ public class BankService implements IBankService, Subject {
                         this.notifyObservers(
                                 TransactionEvent.builder()
                                         .currThreadName(currThreadName)
-                                        .type(Type.TRANSFER.name())
+                                        .type(MessageType.TRANSFER.name())
                                         .fromAccountId(String.valueOf(fromAccountId))
                                         .toAccountId(String.valueOf(toAccountId))
                                         .amount(amount)
@@ -365,9 +365,9 @@ public class BankService implements IBankService, Subject {
     }
 
     @Override
-    public List<Transaction> getTransactionHistory(int accountId) throws RuntimeException {
+    public List<ClientHandler> getTransactionHistory(int accountId) throws RuntimeException {
         Connection conn = null;
-        List<Transaction> transactions = new ArrayList<>();
+        List<ClientHandler> transactions = new ArrayList<>();
         try {
             conn = databaseManager.createHikariConnection();
             transactions = databaseManager.getTransactionsByAccountId(conn, accountId);

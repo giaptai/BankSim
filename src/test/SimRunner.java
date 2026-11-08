@@ -70,7 +70,7 @@ public class SimRunner {
 
     // Phương thức cho DEPOSIT và WITHDRAW (chỉ cần 1 accountId)
     public void runConcurrentTransactions(int accountTestId, double amountPerTransaction,
-            resources.Type transactionType,
+            resources.MessageType transactionType,
             int totalTransaction) {
         List<Future<?>> futures = new ArrayList<>();
         try {

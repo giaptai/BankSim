@@ -13,4 +13,8 @@ public interface Constants {
 
     public static final String DB_TYPE_POSTGRES = "postgres";
     public static final String DB_TYPE_MYSQL = "mysql";
+    
+    public static final int MAX_CONNECTIONS = 5000;
+    public static final int PORT = 8080;
+
 }

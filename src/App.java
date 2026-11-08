@@ -4,8 +4,8 @@ import java.awt.event.WindowEvent;
 import javax.swing.SwingUtilities;
 
 import business.service.BankService;
-import data.DatabaseManagerFactory;
-import data.IDatabaseManager;
+import data.GroupManager;
+import data.Group;
 import presentation.ui.ThreadTrackerGUI;
 import resources.Constants;
 
@@ -13,7 +13,7 @@ public class App {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             ThreadTrackerGUI trackerGUI = new ThreadTrackerGUI();
-            IDatabaseManager databaseManager = DatabaseManagerFactory.create(Constants.DB_TYPE_POSTGRES);
+            Group databaseManager = GroupManager.create(Constants.DB_TYPE_POSTGRES);
             BankService bankService = new BankService(databaseManager, trackerGUI);
 
             trackerGUI.setBankService(bankService);

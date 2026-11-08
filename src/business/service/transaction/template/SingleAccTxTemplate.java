@@ -8,8 +8,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import business.service.transaction.observer.TransactionEvent;
-import resources.Type;
-import data.IDatabaseManager;
+import resources.MessageType;
+import data.Group;
 import data.models.Account;
 import resources.MyExceptions.AccountNotFoundException;
 import resources.MyExceptions.InsufficientFundsException;
@@ -18,7 +18,7 @@ import resources.TransactionStatus;
 
 public abstract class SingleAccTxTemplate {
     private static Logger LOGGER = Logger.getLogger(SingleAccTxTemplate.class.getName());
-    protected IDatabaseManager databaseManager;
+    protected Group databaseManager;
     protected Connection conn;
     protected String currThreadName;
     protected LocalDateTime startTime;
@@ -28,7 +28,7 @@ public abstract class SingleAccTxTemplate {
     protected int accountId;
     protected Account primaryAccount;
 
-    public SingleAccTxTemplate(IDatabaseManager databaseManager, int accountId, double amount) {
+    public SingleAccTxTemplate(Group databaseManager, int accountId, double amount) {
         this.databaseManager = databaseManager;
         this.accountId = accountId;
         this.amount = amount;
@@ -75,7 +75,7 @@ public abstract class SingleAccTxTemplate {
             rollbackAndLog(e, Level.WARNING);
             finalEvent = TransactionEvent.builder()
                     .currThreadName(currThreadName)
-                    .type(Type.TRANSFER.name())
+                    .type(MessageType.TRANSFER.name())
                     .fromAccountId(String.valueOf(accountId))
                     .toAccountId(null)
                     .amount(amount)
@@ -90,7 +90,7 @@ public abstract class SingleAccTxTemplate {
             rollbackAndLog(e, Level.SEVERE);
             finalEvent = TransactionEvent.builder()
                     .currThreadName(currThreadName)
-                    .type(Type.TRANSFER.name())
+                    .type(MessageType.TRANSFER.name())
                     .fromAccountId(String.valueOf(accountId))
                     .toAccountId(null)
                     .amount(amount)
@@ -115,7 +115,7 @@ public abstract class SingleAccTxTemplate {
 
     protected abstract void saveTransaction() throws SQLException;
 
-    protected abstract Type getTransactionType();
+    protected abstract MessageType getTransactionType();
 
     protected void rollbackAndLog(Exception e, Level level) {
         try {

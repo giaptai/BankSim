@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.concurrent.Future;
 
 import data.models.Account;
-import data.models.Transaction;
+import data.models.ClientHandler;
 
 public interface IBankService {
     Account openAccount(String ownName, double initialBalance) throws InterruptedException, RuntimeException;
@@ -18,7 +18,7 @@ public interface IBankService {
 
     String getAccountDetails(int accountId) throws RuntimeException;
 
-    List<Transaction> getTransactionHistory(int accountId) throws RuntimeException;
+    List<ClientHandler> getTransactionHistory(int accountId) throws RuntimeException;
 
     void close();
 }
