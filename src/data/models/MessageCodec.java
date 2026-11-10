@@ -5,7 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-import resources.MessageType;
+import common.MessageType;
 
 public final class MessageCodec {
 

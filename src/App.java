@@ -3,18 +3,18 @@ import java.awt.event.WindowEvent;
 
 import javax.swing.SwingUtilities;
 
-import business.service.BankService;
+import client.ui.ThreadTrackerGUI;
+import common.Constants;
 import data.GroupManager;
+import server.SoaptaServer;
 import data.Group;
-import presentation.ui.ThreadTrackerGUI;
-import resources.Constants;
 
 public class App {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             ThreadTrackerGUI trackerGUI = new ThreadTrackerGUI();
             Group databaseManager = GroupManager.create(Constants.DB_TYPE_POSTGRES);
-            BankService bankService = new BankService(databaseManager, trackerGUI);
+            SoaptaServer bankService = new SoaptaServer(databaseManager, trackerGUI);
 
             trackerGUI.setBankService(bankService);
             trackerGUI.setVisible(true);

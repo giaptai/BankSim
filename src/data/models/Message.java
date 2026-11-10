@@ -1,14 +1,14 @@
 package data.models;
 
-import resources.MessageType;
-import resources.annotations.Builder;
+import common.MessageType;
+import common.annotations.Builder;
 
 @Builder
 public class Message {
     private MessageType type;
     private String payload;
 
-    Message(MessageType type, String payload) {
+    public Message(MessageType type, String payload) {
         this.type = type;
         this.payload = payload;
     }

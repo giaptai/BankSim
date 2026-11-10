@@ -1,5 +1,8 @@
 package server.command;
 
+import server.ClientHandler;
+
+@FunctionalInterface
 public interface CommandStrategy {
-    void update(PrivateMsgStrategy event);
+    void execute(ClientHandler sender, String args);
 }

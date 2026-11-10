@@ -3,15 +3,14 @@ package data.models;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import client.controller.SoaptaServer;
+import common.MessageType;
 import data.FileTransfer;
 import data.Group;
-import presentation.controller.SoaptaServer;
-import resources.MessageType;
 
 import java.io.Closeable;
 import java.io.DataInputStream;
@@ -83,6 +82,10 @@ public class ClientHandler implements Runnable, Closeable {
         return this.threadName;
     }
 
+    public String getDisplayName(){
+        return this.displayName;
+    }
+
     public synchronized void send(Message msg) throws IOException {
         MessageCodec.write(out, msg);
     }
@@ -116,7 +119,7 @@ public class ClientHandler implements Runnable, Closeable {
             case "PM" -> {
                 String[] data = rest.split("\\|", 2);
                 if (data.length < 2) {
-                    send(new Message(MessageType.TEXT, "ERR|INVALID_FORMAT"));
+                    send(new Message(MessageType.TEXT, "ERR|UNKNOWN_COMMAND"));
                     return;
                 }
                 String toThread = data[0];
@@ -126,7 +129,7 @@ public class ClientHandler implements Runnable, Closeable {
             case "GADD" -> {
                 String[] data = rest.split("\\|", 2);
                 if (data.length < 2) {
-                    send(new Message(MessageType.TEXT, "ERR|INVALID_FORMAT"));
+                    send(new Message(MessageType.TEXT, "ERR|UNKNOWN_COMMAND"));
                     return;
                 }
                 String groupId = data[0];
@@ -136,7 +139,7 @@ public class ClientHandler implements Runnable, Closeable {
             case "GMSG" -> {
                 String[] data = rest.split("\\|", 2);
                 if (data.length < 2) {
-                    send(new Message(MessageType.TEXT, "ERR|INVALID_FORMAT"));
+                    send(new Message(MessageType.TEXT, "ERR|UNKNOWN_COMMAND"));
                     return;
                 }
                 String groupId = data[0];
@@ -146,7 +149,7 @@ public class ClientHandler implements Runnable, Closeable {
             case "FILE_START" -> {
                 String[] data = rest.split("\\|", 3);
                 if (data.length < 3) {
-                    send(new Message(MessageType.TEXT, "ERR|INVALID_FORMAT"));
+                    send(new Message(MessageType.TEXT, "ERR|UNKNOWN_COMMAND"));
                     return;
                 }
                 String toThread = data[0];
@@ -155,7 +158,7 @@ public class ClientHandler implements Runnable, Closeable {
                 try {
                     size = Long.parseLong(data[2]);
                 } catch (NumberFormatException e) {
-                    send(new Message(MessageType.TEXT, "ERR|INVALID_FILE_SIZE"));
+                    send(new Message(MessageType.TEXT, "ERR|UNKNOWN_COMMAND"));
                     return;
                 }
                 handleFileStart(toThread, fileName, size);
@@ -171,13 +174,17 @@ public class ClientHandler implements Runnable, Closeable {
         send(new Message(MessageType.TEXT, "LIST|" + data));
     }
 
-    private void handlePrivateMessage(String toThread, String content) {
-
+    private void handlePrivateMessage(String toThread, String content) throws IOException {
+        boolean sent = server.route(toThread, new Message(MessageType.TEXT, "MSG|" + this.threadName + "|" + content));
+        if (!sent) {
+            send(new Message(MessageType.TEXT, "ERR|USER_OFFLINE|" + toThread));
+        }
     }
 
     private void handleGroupCreate(String groupName) throws IOException {
-        if (!groupName.matches("^[\\p{L}0-9_]{2,20}$")) {
+        if (!groupName.matches("^[\\p{L}\\h0-9_]{2,20}$")) {
             send(new Message(MessageType.TEXT, "ERR|INVALID_NAME"));
+            return;
         }
         String groupId = server.getGroupManager().createGroup(groupName, this.threadName);
         send(new Message(MessageType.TEXT, "OK|GCREATE|" + groupId + "|" + groupName));
@@ -187,19 +194,28 @@ public class ClientHandler implements Runnable, Closeable {
         boolean isGroupExist = server.getGroupManager().exists(groupId);
         if (!isGroupExist) {
             send(new Message(MessageType.TEXT, "ERR|GROUP_NOT_FOUND"));
+            return;
         }
         Group group = server.getGroupManager().get(groupId);
         if (!group.getOwnerThread().equals(this.threadName)) {
             send(new Message(MessageType.TEXT, "ERR|NOT_OWNER"));
+            return;
         }
         ClientHandler handler = server.find(memberThread);
         if (handler == null) {
             send(new Message(MessageType.TEXT, "ERR|USER_OFFLINE"));
+            return;
         }
         boolean status = server.getGroupManager().addMember(groupId, memberThread);
         if (status) {
-            send(new Message(MessageType.TEXT, "OK|GADD|" + groupId));
+            server.sendNotice(memberThread, "You were added to group \"" + group.getName() + "\" (" + groupId + ")");
+            for (String mem : group.getMembers()) {
+                if (!mem.equals(memberThread) && !mem.equals(this.threadName)) {
+                    server.sendNotice(mem, memberThread + " joined group \"" + group.getName() + "\"");
+                }
+            }
         }
+        send(new Message(MessageType.TEXT, "OK|GADD|" + groupId));
     }
 
     private void handleGroupList() throws IOException {
@@ -207,7 +223,7 @@ public class ClientHandler implements Runnable, Closeable {
         List<String> groupName = new ArrayList<>();
         StringBuilder sb = new StringBuilder();
         for (Group group : groups) {
-            String groupTemp = String.join(":", "G" + group.getId(), group.getName(),
+            String groupTemp = String.join(":", group.getId(), group.getName(),
                     String.valueOf(group.getMembers().size()));
             groupName.add(groupTemp);
         }
@@ -217,8 +233,24 @@ public class ClientHandler implements Runnable, Closeable {
         send(new Message(MessageType.TEXT, sb.toString()));
     }
 
-    private void handleGroupMessage(String groupId, String content) {
+    private void handleGroupMessage(String groupId, String content) throws IOException {
+        Group group = server.getGroupManager().get(groupId);
+        if (group == null) {
+            send(new Message(MessageType.TEXT, "ERR|GROUP_NOT_FOUND"));
+            return;
+        }
+        boolean isMem = group.isMember(this.threadName);
+        if (!isMem) {
+            send(new Message(MessageType.TEXT, "ERR|NOT_MEMBER"));
+            return;
+        }
+        List<String> mems = group.getMembers().stream().filter(m -> !m.equals(this.threadName))
+                .collect(Collectors.toList());
+        String payload = String.join("|", "GMSG", groupId, this.threadName, content);
 
+        for (String mem : mems) {
+            server.route(mem, new Message(MessageType.TEXT, payload));
+        }
     }
 
     private void handleFileStart(String toThread, String fileName, long size) {
@@ -237,7 +269,15 @@ public class ClientHandler implements Runnable, Closeable {
 
     @Override
     public void close() {
-        server.unregister(threadName);
+        try {
+            if (!socket.isClosed()) {
+                socket.close();
+            }
+        } catch (IOException e) {
+        }
+        if (this.threadName != null) {
+            server.unregister(threadName);
+        }
+        server.getConnLimit().release();
     }
-
 }

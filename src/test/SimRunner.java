@@ -18,13 +18,13 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 
-import business.service.IBankService;
-import resources.Constants;
+import common.Constants;
+import server.ChatHub;
 
 public class SimRunner {
     private static Logger LOGGER = Logger.getLogger(SimRunner.class.getName());
 
-    private IBankService bankService;
+    private ChatHub bankService;
 
     static {
         loadLogConfig();
@@ -64,13 +64,13 @@ public class SimRunner {
     public SimRunner() {
     }
 
-    public SimRunner(IBankService bankService) {
+    public SimRunner(ChatHub bankService) {
         this.bankService = bankService;
     }
 
     // Phương thức cho DEPOSIT và WITHDRAW (chỉ cần 1 accountId)
     public void runConcurrentTransactions(int accountTestId, double amountPerTransaction,
-            resources.MessageType transactionType,
+            common.MessageType transactionType,
             int totalTransaction) {
         List<Future<?>> futures = new ArrayList<>();
         try {

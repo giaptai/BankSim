@@ -9,6 +9,11 @@ import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * 
+ * SoaptaServer
+ * Manage server lifecycle, allocate VVirtual thread and limit connection number
+ */
 public class SoaptaServer {
     private static final Logger LOGGER = Logger.getLogger(SoaptaServer.class.getName());
     // private static SoaptaServer instance;
@@ -43,13 +48,16 @@ public class SoaptaServer {
         }
     }
 
-    private void acceptLoop(ServerSocket serverSocket) throws IOException {
-        try (Socket socket = serverSocket.accept()) {
+    private void acceptLoop(ServerSocket serverSocket) {
+        try  {
+            Socket socket = serverSocket.accept();
             if (connLimit.tryAcquire()) {
                 ClientHandler clientHandler = new ClientHandler(socket);
                 executor.submit(clientHandler);
+            } else{
+                
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             LOGGER.warning("Server only handle 5000 connections at the same time");
         }
     }
