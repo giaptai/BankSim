@@ -46,7 +46,10 @@ soapta/
 │       ├── GroupMsgStrategy.java
 │       ├── CreateGroupStrategy.java
 │       ├── JoinGroupStrategy.java
+│       ├── LeaveGroupStrategy.java
 │       ├── ListUsersStrategy.java
+│       ├── ListGroupsStrategy.java
+│       ├── MyGroupsStrategy.java
 │       ├── HelpStrategy.java
 │       └── ExitStrategy.java
 │
@@ -142,6 +145,20 @@ Phương thức:
   - Trả về danh sách người dùng online theo định dạng:
     - `u-1001 (Alex)`
     - `u-1002 (Bob)`
+- `public List<String> getActiveGroups()`
+  - Trả về danh sách tên các nhóm đang hoạt động kèm số lượng thành viên hiện tại theo định dạng:
+    - `<groupName> (<memberCount> members).`
+  - Nếu không có nhóm nào, trả về danh sách rỗng.
+- `public List<String> getJoinedGroups(String clientId)`
+  - Duyệt qua `groups` để lọc ra danh sách tên các nhóm mà `clientId` đang là thành viên (`members.contains(clientId)`).
+  - Trả về danh sách tên nhóm (`List<String>`). Nếu client chưa tham gia nhóm nào, trả về danh sách rỗng.
+- `public void leaveGroup(String groupName, String clientId)`
+  - Kiểm tra tên nhóm không được để trống.
+  - Kiểm tra nhóm có tồn tại trong `groups` hay không. Nếu không, thông báo lỗi cho client.
+  - Kiểm tra client có phải thành viên của nhóm hay không. Nếu không, thông báo lỗi.
+  - Xóa `clientId` khỏi tập hợp thành viên `members` của nhóm.
+  - Gửi thông báo rời nhóm thành công về cho client.
+  - Gửi thông báo cho các thành viên còn lại đang online trong nhóm biết có người vừa rời nhóm.
 
 Quy tắc quản lý nhóm:
 
@@ -150,6 +167,7 @@ Quy tắc quản lý nhóm:
 - Một người dùng không thể tham gia cùng một nhóm nhiều lần.
 - Chỉ thành viên mới được gửi tin nhắn vào nhóm.
 - Khi người dùng ngắt kết nối, `clientId` được xóa khỏi danh sách thành viên các nhóm.
+- Người dùng có thể chủ động rời khỏi một nhóm bất kỳ bằng lệnh `/leave <group>` mà vẫn duy trì kết nối với Server để chat 1:1 hoặc tham gia các nhóm khác.
 
 #### 1.3. `ClientHandler` – Observer & Runnable
 
@@ -253,6 +271,26 @@ public interface CommandStrategy {
 - Gửi thông báo ngắt kết nối.
 - Gọi `sender.close()`.
 
+`ListGroupsStrategy`
+
+- Gọi `ChatHub.getInstance().getActiveGroups()` để lấy danh sách nhóm đang tồn tại trên hệ thống.
+- Nếu chưa có nhóm nào, gửi thông báo hướng dẫn tạo nhóm: `Active Groups (0): No groups available. Use /create <group> to start one.`
+- Nếu có nhóm, định dạng danh sách và gửi về cho client thông qua `sender.notifyMessage(...)`.
+
+`MyGroupsStrategy`
+
+- Gọi `ChatHub.getInstance().getJoinedGroups(sender.getClientId())` để lấy danh sách các nhóm mà người gửi đang tham gia.
+- Nếu danh sách rỗng, gửi thông báo: `You have not joined any groups yet. Use /join <group> or /create <group>.`
+- Nếu có nhóm, định dạng danh sách kèm số lượng và gửi về client qua `sender.notifyMessage(...)`.
+
+`LeaveGroupStrategy`
+
+- Nhận chuỗi tham số `args` chứa danh sách tên nhóm, ngăn cách bởi khoảng trắng (ví dụ: `dev-team gaming`).
+- Kiểm tra tham số không được để trống. Nếu trống, trả về hướng dẫn: `[ERROR] Group name cannot be empty. Usage: /leave <group1> [group2]...`
+- Tách chuỗi `args` thành mảng các tên nhóm bằng `split("\\s+")`.
+- Duyệt qua từng tên nhóm và gọi `ChatHub.getInstance().leaveGroup(groupName, sender.getClientId())`
+- Hệ thống sẽ xử lý và trả về kết quả độc lập cho từng nhóm (nhóm hợp lệ sẽ rời thành công, nhóm không hợp lệ sẽ báo lỗi tương ứng).
+
 #### 2.3. `CommandDispatcher` – Registry & Dispatcher
 
 Thuộc tính:
@@ -271,9 +309,12 @@ public CommandDispatcher() {
     commands.put("/group", new GroupMsgStrategy());
     commands.put("/create", new CreateGroupStrategy());
     commands.put("/join", new JoinGroupStrategy());
+    commands.put("/leave", new LeaveGroupStrategy());
     commands.put("/list", new ListUsersStrategy());
     commands.put("/help", new HelpStrategy());
     commands.put("/exit", new ExitStrategy());
+    commands.put("/groups", new ListGroupsStrategy());
+    commands.put("/mygroups", new MyGroupsStrategy());
 }
 ```
 
@@ -329,6 +370,10 @@ Phương thức:
 | Group   | `/group <group> <text>`  | Gửi tin nhắn vào nhóm           |
 | Private | `/msg <clientId> <text>` | Gửi tin nhắn riêng              |
 | Exit    | `/exit`                  | Ngắt kết nối                    |
+| Groups  | `/groups`                | Xem danh sách các nhóm chat đang hoạt động |
+| MyGroups| `/mygroups`              | Xem danh sách các nhóm mà bạn đã tham gia |
+| Leave   | `/leave <group1> [group2]...` | Rời khỏi một hoặc nhiều nhóm chat đang tham gia |
+
 
 ## V. Mô phỏng giao diện Console
 
@@ -350,12 +395,15 @@ Enter display name: Alex
 ```
 > /help
 Commands:
-  /list                     List all active users
-  /create <group>           Create a new group
-  /join <group>             Join an existing group
-  /group <group> <text>     Send a message to a group
-  /msg <clientId> <text>    Send a private 1:1 message
-  /exit                     Disconnect from server
+  /list                         List all active users
+  /groups                       List all active groups
+  /mygroups                     List groups you have joined
+  /create <group>               Create a new group
+  /join <group>                 Join an existing group
+  /leave <group1> [group2]...   Leave a group
+  /group <group> <text>         Send a message to a group
+  /msg <clientId> <text>        Send a private 1:1 message
+  /exit                         Disconnect from server
 
 > /list
 Active Users (3):
@@ -409,6 +457,90 @@ Nếu người dùng đã tham gia nhóm:
 ```
 > /join dev-team
 [SYSTEM] You are already a member of group 'dev-team'.
+```
+
+Xem danh sách nhóm chat:
+
+```
+> /groups
+Active Groups (2):
+- dev-team (3 members)
+- general (5 members)
+```
+
+Trường hợp chưa có nhóm nào được tạo:
+
+```
+> /groups
+Active Groups (0): No groups available. Use /create <group> to start one.
+```
+
+Xem danh sách nhóm đã tham gia:
+
+```
+> /mygroups
+Joined Groups (2):
+- dev-team
+- general
+```
+
+Người dùng chưa tham gia nhóm nào:
+
+```
+> /mygroups
+Joined Groups (0): You have not joined any groups yet. Use /join <group> or /create <group>.
+```
+
+Rời 1 nhóm duy nhất:
+
+```
+> /leave dev-team
+[SYSTEM] You have left group 'dev-team'.
+```
+
+Rời nhiều nhóm cùng lúc trong 1 câu lệnh:
+
+```
+> /leave dev-team gaming general
+[SYSTEM] You have left group 'dev-team'.
+[SYSTEM] You have left group 'gaming'.
+[SYSTEM] You have left group 'general'.
+```
+
+Rời nhiều nhóm nhưng có nhóm bị lỗi (xử lý độc lập):
+
+```
+> /leave dev-team unknown-group
+[SYSTEM] You have left group 'dev-team'.
+[ERROR] Group 'unknown-group' does not exist.
+```
+
+(Màn hình của các thành viên khác đang ở trong nhóm dev-team sẽ nhận được thông báo):
+
+```
+[Group #dev-team][SYSTEM]: u-1001 (Alex) has left the group.
+>
+```
+
+Nếu nhóm muốn rời không tồn tại:
+
+```
+> /leave unknown-group
+[ERROR] Group 'unknown-group' does not exist.
+```
+
+Nếu nhóm muốn rời mà người dùng chưa từng tham gia nhóm đó:
+
+```
+> /leave dev-team
+[ERROR] You are not a member of group 'dev-team'.
+```
+
+Nếu không nhập tên nhóm:
+
+```
+> /leave
+[ERROR] Group name cannot be empty. Usage: /leave <group1> [group2]...
 ```
 
 ### 6. Gửi tin nhắn nhóm

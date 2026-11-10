@@ -6,6 +6,7 @@ public class HelpStrategy implements CommandStrategy {
     private static final String HELP_TEXT = """
             Commands:
                 /list                     List all active users
+                /groups                   List all active groups
                 /create <group>           Create a new group
                 /join <group>             Join an existing group
                 /group <group> <text>     Send a message to a group

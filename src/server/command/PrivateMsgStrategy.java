@@ -7,10 +7,10 @@ public class PrivateMsgStrategy implements CommandStrategy {
 
     @Override
     public void execute(ClientHandler sender, String args) {
-        String[] data = args.split("\\s+",3);
+        String[] data = args.split("\\s+", 2);
         String fromClientId = sender.getClientId();
-        String toClientId = data[1];
-        String msg = data[2];
+        String toClientId = data[0];
+        String msg = data[1];
         ChatHub.getInstance().sendPrivateMsg(fromClientId, toClientId, msg);
     }
 

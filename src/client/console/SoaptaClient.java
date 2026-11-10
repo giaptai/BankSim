@@ -44,7 +44,7 @@ public class SoaptaClient {
                 System.out.println(in.readLine());
                 System.out.println();
 
-                // tiep nhan tin nhan tu server
+                // receive message from server
                 Thread.ofPlatform().daemon(true).start(new Runnable() {
                     @Override
                     public void run() {
@@ -53,15 +53,18 @@ public class SoaptaClient {
                             while ((msgFromServer = in.readLine()) != null) {
                                 System.out.print("\r\033[K");
                                 System.out.println(msgFromServer);
+                                if(msgFromServer.contains("Disconnected from server")){
+                                    break;
+                                }
                                 System.out.print("> ");
                             }
                         } catch (IOException e) {
-                            System.out.println(e.getMessage());
+                            System.out.println("SoapClient: " + e.getMessage());
                         }
                     }
                 });
                 
-                //gui tin toi server
+                // send message to server
                 String input = "";
                 do {
                     System.out.print("> ");

@@ -46,14 +46,14 @@ public class ClientHandler implements Runnable {
     public void close() {
         try {
             ChatHub chatHub = ChatHub.getInstance();
-            SoaptaServer soaptaServer = SoaptaServer.getInstance();
             chatHub.unresigterClient(this.clientId);
             displayName = null;
             clientId = null;
             socket.close();
-            soaptaServer.releaseConn();
         } catch (IOException e) {
             // later
+        } finally {
+            SoaptaServer.getInstance().releaseConn();
         }
     }
 
@@ -72,13 +72,16 @@ public class ClientHandler implements Runnable {
             ChatHub chatHub = ChatHub.getInstance();
             String clientId = chatHub.registerClient(displayName, this);
             this.clientId = clientId;
-            
+
             String line;
             while ((line = reader.readLine()) != null) {
                 dispatcher.dispatch(this, line);
+                if("/exit".equalsIgnoreCase(line.trim())){
+                    break;
+                }
             }
         } catch (Exception e) {
-            LOGGER.warning(e.getMessage());
+            LOGGER.warning("ClientHandler close: " + e.getMessage());
         } finally {
             close();
         }

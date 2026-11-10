@@ -44,14 +44,12 @@ public class ChatHub {
     }
 
     public void unresigterClient(String clientId) {
-        ClientHandler clientHandler = clients.get(clientId);
         // remove client
-        clients.remove(clientId);
+        ClientHandler handler = clients.remove(clientId);
         // remove client in group
         for (Map.Entry<String, Set<String>> group : groups.entrySet()) {
             group.getValue().remove(clientId);
         }
-        clientHandler.notifyMessage("[SYSTEM] Disconnected from server. Goodbye!");
     }
 
     public void sendPrivateMsg(String fromClientId, String toClientId, String msg) {
@@ -60,8 +58,11 @@ public class ChatHub {
             // send notify client is not exist
             return;
         }
-        String formatMsg = String.format("[PM from %s (%s)]: %s", clientHandler.getClientId(), clientHandler.getDisplayName(), msg);
+        String formatMsg = String.format("[PM from %s (%s)]: %s", clientHandler.getClientId(),
+                clientHandler.getDisplayName(), msg);
         // send msg if client exists
+        // clientHandler.notifyMessage("The receipent " + toClientId + " is not exist");
+
         clientHandler.notifyMessage(formatMsg);
     }
 
@@ -124,6 +125,11 @@ public class ChatHub {
                 client.notifyMessage(formatMsg);
             }
         }
+    }
+
+    public List<String> getGroupsSummary() {
+        return groups.entrySet().stream()
+                .map(group -> String.format("%s (%d members)", group.getKey(), group.getValue().size())).toList();
     }
 
     public List<String> getOnlineClient() {
