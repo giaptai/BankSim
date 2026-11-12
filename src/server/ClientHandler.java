@@ -25,10 +25,12 @@ public class ClientHandler implements Runnable {
     private BufferedReader reader;
     private PrintWriter writer;
     private final CommandDispatcher dispatcher;
+    private final SoaptaServer server;
 
-    protected ClientHandler(Socket socket) {
+    protected ClientHandler(Socket socket, SoaptaServer server) {
         this.socket = socket;
         this.dispatcher = new CommandDispatcher();
+        this.server = server;
     }
 
     public String getClientId() {
@@ -53,7 +55,7 @@ public class ClientHandler implements Runnable {
         } catch (IOException e) {
             // later
         } finally {
-            SoaptaServer.getInstance().releaseConn();
+            server.releaseConn();
         }
     }
 
@@ -76,7 +78,7 @@ public class ClientHandler implements Runnable {
             String line;
             while ((line = reader.readLine()) != null) {
                 dispatcher.dispatch(this, line);
-                if("/exit".equalsIgnoreCase(line.trim())){
+                if ("/exit".equalsIgnoreCase(line.trim())) {
                     break;
                 }
             }

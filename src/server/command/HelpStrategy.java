@@ -5,13 +5,15 @@ import server.ClientHandler;
 public class HelpStrategy implements CommandStrategy {
     private static final String HELP_TEXT = """
             Commands:
-                /list                     List all active users
-                /groups                   List all active groups
-                /create <group>           Create a new group
-                /join <group>             Join an existing group
-                /group <group> <text>     Send a message to a group
-                /msg <clientId> <text>    Send a private 1:1 message
-                /exit                     Disconnect from server
+                /list                           List all active users
+                /groups                         List all active groups
+                /mygroups                       List groups you have joined
+                /create <group>                 Create a new group
+                /join <group>                   Join an existing group
+                /leave <group1> [group2]...     Leave a group
+                /group <group> <text>           Send a message to a group
+                /msg <clientId> <text>          Send a private 1:1 message
+                /exit                           Disconnect from server
             """;
 
     @Override

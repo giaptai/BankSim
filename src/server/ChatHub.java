@@ -139,4 +139,43 @@ public class ChatHub {
             return clientId + ": " + displayName;
         }).toList();
     }
+
+    public List<String> getJoinedGroups(String clientId) {
+        ClientHandler client = clients.get(clientId);
+        List<String> groupJoined = groups.entrySet().stream().filter(
+                g -> g.getValue().contains(clientId)).map(groupName -> groupName.getKey()).toList();
+        if (groupJoined.isEmpty()) {
+            client.notifyMessage("You have not joined any groups yet. Use /join <group> or /create <group>.");
+            return List.of();
+        } else {
+            return groupJoined;
+        }
+    }
+
+    public void leaveGroup(String groupName, String clientId) {
+        ClientHandler client = clients.get(clientId);
+
+        boolean isGroupExist = groups.containsKey(groupName);
+        if (!isGroupExist) {
+            client.notifyMessage("[ERROR] Group '" + groupName + "' does not exist.");
+            return;
+        }
+        Set<String> members = groups.get(groupName);
+        if (members.contains(clientId)) {
+            members.remove(clientId);
+            client.notifyMessage("[SYSTEM] You have left group '" + groupName + "'.");
+            // send notify to other members
+            for (String member : members) {
+                ClientHandler mem = clients.get(member);
+                mem.notifyMessage(String.format("[Group #%s][SYSTEM]: %s (%s) has left the group.", groupName,
+                        client.getClientId(), client.getDisplayName()));
+            }
+        } else {
+            client.notifyMessage("[ERROR] You are not a member of group '" + groupName + "'.");
+        }
+        if (members.isEmpty()) {
+            groups.remove(groupName);
+            LOGGER.info("Group '" + groupName + "' was automatically removed (0 members remaining).");
+        }
+    }
 }

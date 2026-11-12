@@ -14,30 +14,22 @@ import java.util.logging.Logger;
  * SoaptaServer
  * Manage server lifecycle, allocate VVirtual thread and limit connection number
  */
-public class SoaptaServer {
+public abstract class SoaptaServer {
     private static final Logger LOGGER = Logger.getLogger(SoaptaServer.class.getName());
     // private static SoaptaServer instance;
     private final int port;
-    private final Semaphore connLimit;
-    private final ExecutorService executor;
-    private volatile boolean running;
+    protected final Semaphore connLimit;
+    protected final ExecutorService executor;
+    protected volatile boolean running;
 
-    private SoaptaServer() {
-        this.port = 8080;
+    protected SoaptaServer(int port) {
+        this.port = port;
         this.connLimit = new Semaphore(5000);
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
         this.running = true;
     }
 
-    private static class Holder {
-        private static final SoaptaServer INSTANCE = new SoaptaServer();
-    }
-
-    public static SoaptaServer getInstance() {
-        return Holder.INSTANCE;
-    }
-
-    public void start() {
+    protected final void start() {
         LOGGER.log(Level.INFO, "Running Soapta server on port {0}", String.valueOf(this.port));
         try (ServerSocket server = new ServerSocket(port)) {
             while (this.running) {
@@ -49,24 +41,31 @@ public class SoaptaServer {
     }
 
     private void acceptLoop(ServerSocket serverSocket) {
-        try  {
+        try {
             Socket socket = serverSocket.accept();
             if (connLimit.tryAcquire()) {
-                ClientHandler clientHandler = new ClientHandler(socket);
-                executor.submit(clientHandler);
-            } else{
-                
+                ClientHandler client = createHandler(socket);
+                executor.submit(client);
+            } else {
+                socket.close();
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOGGER.warning("Server only handle 5000 connections at the same time");
         }
-    }
+    };
 
     public void releaseConn() {
         connLimit.release();
     }
 
+    protected abstract ClientHandler createHandler(Socket socket);
+
     public static void main(String[] args) {
-        SoaptaServer.getInstance().start();
+        // close() chờ các task hoàn thành. Vì hai Server chạy liên tục
+        try (ExecutorService service = Executors.newVirtualThreadPerTaskExecutor();) {
+            service.submit(() -> SoaptaTextServer.getInstance().start());
+            service.submit(() -> SoaptaFileServer.getInstance().start());
+        } catch (Exception e) {
+        }
     }
 }

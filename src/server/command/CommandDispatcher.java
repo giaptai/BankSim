@@ -20,6 +20,8 @@ public class CommandDispatcher {
         commands.put("/msg", new PrivateMsgStrategy());
         commands.put("/exit", new ExitStrategy());
         commands.put("/groups", new ListGroupsStrategy());
+        commands.put("/leave", new LeaveGroupStrategy());
+        commands.put("/mygroups", new MyGroupsStrategy());
     }
 
     public void dispatch(ClientHandler sender, String rawInput) {
