@@ -22,6 +22,7 @@ public class CommandDispatcher {
         commands.put("/groups", new ListGroupsStrategy());
         commands.put("/leave", new LeaveGroupStrategy());
         commands.put("/mygroups", new MyGroupsStrategy());
+        commands.put("/file", new FileStrategy());
     }
 
     public void dispatch(ClientHandler sender, String rawInput) {

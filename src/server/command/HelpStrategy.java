@@ -13,6 +13,10 @@ public class HelpStrategy implements CommandStrategy {
                 /leave <group1> [group2]...     Leave a group
                 /group <group> <text>           Send a message to a group
                 /msg <clientId> <text>          Send a private 1:1 message
+                /file send <clientId> <path>    Send a file transfer request
+                /file accept <transferId>       Accept a file transfer request
+                /file decline <transferId>      Decline a file transfer request
+                /file requests                  List pending file transfer requests
                 /exit                           Disconnect from server
             """;
 

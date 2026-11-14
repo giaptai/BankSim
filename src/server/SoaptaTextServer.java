@@ -17,7 +17,7 @@ public class SoaptaTextServer extends SoaptaServer {
     }
 
     @Override
-    protected ClientHandler createHandler(Socket socket) {
+    protected Runnable createHandler(Socket socket) {
         return new ClientHandler(socket, this);
     }
 }

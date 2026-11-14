@@ -17,8 +17,7 @@ public class SoaptaFileServer extends SoaptaServer {
     }
 
     @Override
-    protected ClientHandler createHandler(Socket socket) {
-        return new ClientHandler(socket, this);
+    protected Runnable createHandler(Socket socket) {
+        return new FileHandler(socket, this);
     }
-
 }

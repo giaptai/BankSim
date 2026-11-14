@@ -1,14 +1,19 @@
 package server;
 
+import java.net.Socket;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import common.FileTransfer;
 
 /**
  * Manage user status, chat groups, and message coordination.
@@ -19,11 +24,23 @@ public class ChatHub {
     private final AtomicLong idCounter;
     private final ConcurrentMap<String, ClientHandler> clients;
     private final ConcurrentMap<String, Set<String>> groups;
+    private final static long MAX_FILE_SIZE = 150L * 1024 * 1024;
+
+    // file handler
+    private final AtomicLong fileIdCouunter;
+    private final ConcurrentMap<String, FileTransfer> pendingFiles;
+    private final ConcurrentMap<String, CompletableFuture<Socket>> receiverSockets;
+    private final ConcurrentMap<String, CompletableFuture<Void>> transferDoneMap;
 
     private ChatHub() {
         idCounter = new AtomicLong(1000);
         clients = new ConcurrentHashMap<>();
         groups = new ConcurrentHashMap<>();
+        // file
+        fileIdCouunter = new AtomicLong(100);
+        pendingFiles = new ConcurrentHashMap<>();
+        receiverSockets = new ConcurrentHashMap<>();
+        transferDoneMap = new ConcurrentHashMap<>();
     }
 
     private static class Holder {
@@ -43,13 +60,19 @@ public class ChatHub {
         return clientId;
     }
 
-    public void unresigterClient(String clientId) {
+    public void unregisterClient(String clientId) {
         // remove client
         ClientHandler handler = clients.remove(clientId);
         // remove client in group
         for (Map.Entry<String, Set<String>> group : groups.entrySet()) {
             group.getValue().remove(clientId);
         }
+        pendingFiles.entrySet().removeIf(e -> {
+            if (e.getValue().senderId().equals(clientId) || e.getValue().receiverId().equals(clientId)) {
+                return true;
+            }
+            return false;
+        });
     }
 
     public void sendPrivateMsg(String fromClientId, String toClientId, String msg) {
@@ -177,5 +200,123 @@ public class ChatHub {
             groups.remove(groupName);
             LOGGER.info("Group '" + groupName + "' was automatically removed (0 members remaining).");
         }
+    }
+
+    public void fileSend(ClientHandler sender, String subArgs) {
+        if (subArgs.isBlank()) {
+            return;
+        }
+        String[] parts = subArgs.split("\\s+", 3);
+        String receiverId = parts[0];
+        long fileSize = Long.parseLong(parts[1]);
+        String fileName = parts[2];
+        try {
+            if (fileSize > MAX_FILE_SIZE) {
+                sender.notifyMessage("[ERROR] File size exceeds the 150 MB limit.");
+                return;
+            } else if (fileName.isEmpty()) {
+                sender.notifyMessage("[ERROR] Cannot send an empty file.");
+                return;
+            }
+            ClientHandler receiver = clients.get(receiverId);
+            if (receiver == null) {
+                sender.notifyMessage("[ERROR] Receiver is not online.");
+                return;
+            } else if (receiverId.equals(sender.getClientId())) {
+                sender.notifyMessage("[ERROR] You cannot send a file to yourself.");
+                return;
+            }
+
+            String transderId = "ft-" + fileIdCouunter.incrementAndGet();
+            FileTransfer fileTransfer = new FileTransfer(transderId, sender.getClientId(), receiverId, fileName,
+                    fileSize);
+            // danh sach file
+            pendingFiles.put(transderId, fileTransfer);
+            sender.notifyMessage(String.format("[FILE] File request sent to %s for '%s'. [ID: %s]", receiverId,
+                    fileName, transderId));
+            receiver.notifyMessage(
+                    String.format("[FILE] Incoming file request: %s (%d bytes) | From: %s | Transfer Id: %s",
+                            fileName, fileSize, sender.getClientId(), transderId));
+        } catch (Exception e) {
+            LOGGER.warning("send file: " + e.getMessage());
+        }
+    }
+
+    public void fileAccept(ClientHandler client, String subArgs) {
+        String transferId = subArgs;
+        FileTransfer transfer = pendingFiles.get(transferId);
+        if (Objects.isNull(transfer)) {
+            client.notifyMessage("[ERROR] File transfer request not found.");
+            return;
+        }
+        ClientHandler sender = clients.get(transfer.senderId());
+        if (Objects.isNull(sender)) {
+            client.notifyMessage("[ERROR] Sender `" + transfer.senderId() + "` is not online.");
+            return;
+        }
+        if (!client.getClientId().equals(transfer.receiverId())) {
+            client.notifyMessage("[ERROR] You are not the receiver of this file transfer.");
+            return;
+        }
+        client.notifyMessage(String.format(
+                "[FILE] You accepted the file transfer request from %s for '%s'. [ID: %s]",
+                transfer.senderId(), transfer.fileName(), transfer.transferId()));
+        sender.notifyMessage(String.format("[FILE] '%s' accepted your file transfer request for '%s'. [ID: %s]",
+                client.getClientId(), transfer.fileName(), transfer.transferId()));
+    }
+
+    public void fileDecline(ClientHandler client, String subArgs) {
+        String transferId = subArgs;
+        FileTransfer transfer = pendingFiles.get(transferId);
+        if (Objects.isNull(transfer)) {
+            client.notifyMessage("[ERROR] File transfer request not found.");
+            return;
+        }
+        ClientHandler sender = clients.get(transfer.senderId());
+        if (!client.getClientId().equals(transfer.receiverId())) {
+            client.notifyMessage("[ERROR] You are not the receiver of this file transfer.");
+            return;
+        }
+        pendingFiles.remove(transferId);
+        client.notifyMessage(String.format(
+                "[FILE] You declined the file transfer request from %s for '%s'. [ID: %s]",
+                transfer.senderId(), transfer.fileName(), transfer.transferId()));
+        sender.notifyMessage(String.format("[FILE] '%s' declined your file transfer request for '%s'. [ID: %s]",
+                client.getClientId(), transfer.fileName(), transfer.transferId()));
+    }
+
+    public void fileRequest(ClientHandler client, String subArgs) {
+        List<String> l = pendingFiles.entrySet().stream()
+                .filter(i -> i.getValue().receiverId().equals(client.getClientId())).map(
+                        f -> {
+                            FileTransfer fileTransfer = f.getValue();
+                            String str = String.format("- [%s] '%s' (%.1f MB) from %s\n", fileTransfer.transferId(),
+                                    fileTransfer.fileName(), fileTransfer.fileSize() / 1_000_000.0,
+                                    fileTransfer.senderId());
+                            return str;
+                        })
+                .toList();
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("Pending File Requests: (%d)\n", l.size()));
+        l.forEach(sb::append);
+        client.notifyMessage(sb.toString());
+    }
+
+    public FileTransfer getFileTransfer(String transferId) {
+        return pendingFiles.get(transferId);
+    }
+
+    public CompletableFuture<Socket> getReceiverSocketFuture(String transferId) {
+        return receiverSockets.computeIfAbsent(transferId, k -> new CompletableFuture<>());
+    }
+
+    public CompletableFuture<Void> getTransferDoneFuture(String transferId) {
+        return transferDoneMap.computeIfAbsent(transferId, k -> new CompletableFuture<>());
+    }
+
+    public void cleanupFileFutures(String transferId) {
+        receiverSockets.remove(transferId);
+        transferDoneMap.remove(transferId);
+        pendingFiles.remove(transferId);
     }
 }

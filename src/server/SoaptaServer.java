@@ -41,16 +41,22 @@ public abstract class SoaptaServer {
     }
 
     private void acceptLoop(ServerSocket serverSocket) {
+        boolean permitAcquired = false;
         try {
             Socket socket = serverSocket.accept();
             if (connLimit.tryAcquire()) {
-                ClientHandler client = createHandler(socket);
+                permitAcquired = true;
+                Runnable client = createHandler(socket);
                 executor.submit(client);
+                permitAcquired = false;
             } else {
                 socket.close();
             }
         } catch (Exception e) {
             LOGGER.warning("Server only handle 5000 connections at the same time");
+            if (permitAcquired) {
+                releaseConn();
+            }
         }
     };
 
@@ -58,7 +64,7 @@ public abstract class SoaptaServer {
         connLimit.release();
     }
 
-    protected abstract ClientHandler createHandler(Socket socket);
+    protected abstract Runnable createHandler(Socket socket);
 
     public static void main(String[] args) {
         // close() chờ các task hoàn thành. Vì hai Server chạy liên tục

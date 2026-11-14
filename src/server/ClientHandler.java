@@ -48,7 +48,7 @@ public class ClientHandler implements Runnable {
     public void close() {
         try {
             ChatHub chatHub = ChatHub.getInstance();
-            chatHub.unresigterClient(this.clientId);
+            chatHub.unregisterClient(this.clientId);
             displayName = null;
             clientId = null;
             socket.close();
