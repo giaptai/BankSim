@@ -232,8 +232,9 @@ public class ChatHub {
                     fileSize);
             // danh sach file
             pendingFiles.put(transderId, fileTransfer);
-            sender.notifyMessage(String.format("[FILE] File request sent to %s for '%s'. [ID: %s]", receiverId,
-                    fileName, transderId));
+            sender.notifyMessage(
+                    String.format("[FILE] File request sent to %s for '%s'. [ID: %s]", receiverId,
+                            fileName, transderId));
             receiver.notifyMessage(
                     String.format("[FILE] Incoming file request: %s (%d bytes) | From: %s | Transfer Id: %s",
                             fileName, fileSize, sender.getClientId(), transderId));
@@ -259,8 +260,8 @@ public class ChatHub {
             return;
         }
         client.notifyMessage(String.format(
-                "[FILE] You accepted the file transfer request from %s for '%s'. [ID: %s]",
-                transfer.senderId(), transfer.fileName(), transfer.transferId()));
+                "[FILE] You accepted the file transfer request from %s for '%s' (%d bytes). [ID: %s]",
+                transfer.senderId(), transfer.fileName(), transfer.fileSize(), transfer.transferId()));
         sender.notifyMessage(String.format("[FILE] '%s' accepted your file transfer request for '%s'. [ID: %s]",
                 client.getClientId(), transfer.fileName(), transfer.transferId()));
     }
@@ -290,8 +291,8 @@ public class ChatHub {
                 .filter(i -> i.getValue().receiverId().equals(client.getClientId())).map(
                         f -> {
                             FileTransfer fileTransfer = f.getValue();
-                            String str = String.format("- [%s] '%s' (%.1f MB) from %s\n", fileTransfer.transferId(),
-                                    fileTransfer.fileName(), fileTransfer.fileSize() / 1_000_000.0,
+                            String str = String.format("- [%s] '%s' (%.1f KB) from %s\n", fileTransfer.transferId(),
+                                    fileTransfer.fileName(), fileTransfer.fileSize() / 1024.0,
                                     fileTransfer.senderId());
                             return str;
                         })
