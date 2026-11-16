@@ -1,7 +1,7 @@
 package server.command;
 
 import server.ChatHub;
-import server.ClientHandler;
+import server.TextHandler;
 
 import java.util.List;
 import java.lang.StringBuilder;
@@ -9,7 +9,7 @@ import java.lang.StringBuilder;
 public class MyGroupsStrategy implements CommandStrategy {
 
     @Override
-    public void execute(ClientHandler sender, String args) {
+    public void execute(TextHandler sender, String args) {
         String clientId = sender.getClientId();
         List<String> groups = ChatHub.getInstance().getJoinedGroups(clientId);
         if (groups.isEmpty()) {

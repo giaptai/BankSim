@@ -1,12 +1,12 @@
 package server.command;
 
 import server.ChatHub;
-import server.ClientHandler;
+import server.TextHandler;
 
 public class PrivateMsgStrategy implements CommandStrategy {
 
     @Override
-    public void execute(ClientHandler sender, String args) {
+    public void execute(TextHandler sender, String args) {
         String[] data = args.split("\\s+", 2);
         String fromClientId = sender.getClientId();
         String toClientId = data[0];

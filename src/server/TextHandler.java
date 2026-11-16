@@ -11,14 +11,13 @@ import java.util.logging.Logger;
 import server.command.CommandDispatcher;
 
 /**
- * 
  * ClientHandler
  * each instance represent of client who is connecting and process I/O on a
  * virtual thread
  */
 
-public class ClientHandler implements Runnable {
-    private static final Logger LOGGER = Logger.getLogger(ClientHandler.class.getName());
+public class TextHandler implements Runnable {
+    private static final Logger LOGGER = Logger.getLogger(TextHandler.class.getName());
     private final Socket socket;
     private String clientId;
     private String displayName;
@@ -27,7 +26,7 @@ public class ClientHandler implements Runnable {
     private final CommandDispatcher dispatcher;
     private final SoaptaServer server;
 
-    protected ClientHandler(Socket socket, SoaptaServer server) {
+    protected TextHandler(Socket socket, SoaptaServer server) {
         this.socket = socket;
         this.dispatcher = new CommandDispatcher();
         this.server = server;
@@ -53,7 +52,7 @@ public class ClientHandler implements Runnable {
             clientId = null;
             socket.close();
         } catch (IOException e) {
-            // later
+            LOGGER.warning("TextHandler: " + e.getMessage());
         } finally {
             server.releaseConn();
         }
@@ -71,6 +70,7 @@ public class ClientHandler implements Runnable {
                 return;
             }
 
+            // register displayName
             ChatHub chatHub = ChatHub.getInstance();
             String clientId = chatHub.registerClient(displayName, this);
             this.clientId = clientId;

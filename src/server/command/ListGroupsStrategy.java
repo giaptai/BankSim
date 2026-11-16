@@ -1,13 +1,13 @@
 package server.command;
 
 import server.ChatHub;
-import server.ClientHandler;
+import server.TextHandler;
 import java.util.List;
 
 public class ListGroupsStrategy implements CommandStrategy {
 
     @Override
-    public void execute(ClientHandler sender, String args) {
+    public void execute(TextHandler sender, String args) {
         List<String> groups = ChatHub.getInstance().getGroupsSummary();
         if(groups.isEmpty()){
             sender.notifyMessage("Active Groups (0): No groups created yet. Use /create <group> to start one.");

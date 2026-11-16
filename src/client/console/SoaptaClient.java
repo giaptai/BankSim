@@ -101,6 +101,7 @@ public class SoaptaClient {
                                             pendingDownloadSizes.put(transferId, fileSize);
                                         }
                                         String finalRole = role;
+                                        // open connect to file server
                                         Thread.ofVirtual().start(() -> connFileServer(transferId, finalRole));
                                     }
                                 }

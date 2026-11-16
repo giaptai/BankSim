@@ -3,12 +3,12 @@ package server.command;
 import java.util.List;
 
 import server.ChatHub;
-import server.ClientHandler;
+import server.TextHandler;
 
 public class ListUsersStrategy implements CommandStrategy {
 
     @Override
-    public void execute(ClientHandler sender, String args) {
+    public void execute(TextHandler sender, String args) {
         List<String> onlineClients = ChatHub.getInstance().getOnlineClient();
         StringBuilder sb = new StringBuilder();
         sb.append("Active Client " + "(" + onlineClients.size() + "):");

@@ -9,6 +9,8 @@ import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import common.constants.Constants;
+
 /**
  * 
  * SoaptaServer
@@ -24,7 +26,14 @@ public abstract class SoaptaServer {
 
     protected SoaptaServer(int port) {
         this.port = port;
-        this.connLimit = new Semaphore(5000);
+        this.connLimit = new Semaphore(Constants.MAX_CONNECTIONS);
+        this.executor = Executors.newVirtualThreadPerTaskExecutor();
+        this.running = true;
+    }
+
+    protected SoaptaServer(int port, int maxConn) {
+        this.port = port;
+        this.connLimit = new Semaphore(maxConn);
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
         this.running = true;
     }
@@ -69,8 +78,8 @@ public abstract class SoaptaServer {
     public static void main(String[] args) {
         // close() chờ các task hoàn thành. Vì hai Server chạy liên tục
         try (ExecutorService service = Executors.newVirtualThreadPerTaskExecutor();) {
-            service.submit(() -> SoaptaTextServer.getInstance().start());
-            service.submit(() -> SoaptaFileServer.getInstance().start());
+            service.submit(() -> TextServer.getInstance().start());
+            service.submit(() -> FileServer.getInstance().start());
         } catch (Exception e) {
         }
     }

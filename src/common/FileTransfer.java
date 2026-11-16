@@ -6,40 +6,50 @@ public record FileTransfer(
                 String receiverId,
                 String fileName,
                 long fileSize) {
+        public static Builder builder() {
+                return new Builder();
+        }
 
-        private class builder {
+        public static class Builder {
                 String transferId;
                 String senderId;
                 String receiverId;
                 String fileName;
                 long fileSize;
 
-                public builder() {
-                        // return new builder();
+                public Builder transferId(String transferId) {
+                        this.transferId = transferId;
+                        return this;
                 }
 
-                public builder senderId(String senderId) {
+                public Builder senderId(String senderId) {
                         this.senderId = senderId;
                         return this;
                 }
 
-                public builder receiverId(String receiverId) {
+                public Builder receiverId(String receiverId) {
                         this.receiverId = receiverId;
                         return this;
                 }
 
-                public builder fileName(String fileName) {
+                public Builder fileName(String fileName) {
                         this.fileName = fileName;
                         return this;
                 }
 
-                public builder transferId(long fileSize) {
+                public Builder fileSize(long fileSize) {
                         this.fileSize = fileSize;
                         return this;
                 }
-                // public static FileTransfer build(){
-                //         return new FileTransfer(this);
-                // }
+
+                public FileTransfer build() {
+                        return new FileTransfer(
+                                        transferId,
+                                        senderId,
+                                        receiverId,
+                                        fileName,
+                                        fileSize);
+                }
         }
 
 }

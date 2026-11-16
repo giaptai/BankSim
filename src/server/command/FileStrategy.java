@@ -1,12 +1,12 @@
 package server.command;
 
 import server.ChatHub;
-import server.ClientHandler;
+import server.TextHandler;
 
 public class FileStrategy implements CommandStrategy {
 
     @Override
-    public void execute(ClientHandler sender, String args) {
+    public void execute(TextHandler sender, String args) {
         if (args == null || args.isBlank()) {
             sender.notifyMessage("[ERROR] Usage: /file <send|accept|decline|requests>");
             return;

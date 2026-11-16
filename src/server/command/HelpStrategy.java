@@ -1,6 +1,6 @@
 package server.command;
 
-import server.ClientHandler;
+import server.TextHandler;
 
 public class HelpStrategy implements CommandStrategy {
     private static final String HELP_TEXT = """
@@ -21,7 +21,7 @@ public class HelpStrategy implements CommandStrategy {
             """;
 
     @Override
-    public void execute(ClientHandler sender, String args) {
+    public void execute(TextHandler sender, String args) {
         sender.notifyMessage(HELP_TEXT);
     }
 

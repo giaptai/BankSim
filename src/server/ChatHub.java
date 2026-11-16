@@ -22,7 +22,7 @@ public class ChatHub {
     private static final Logger LOGGER = Logger.getLogger(ChatHub.class.getName());
     // private static final ChatHub INSTANCE;
     private final AtomicLong idCounter;
-    private final ConcurrentMap<String, ClientHandler> clients;
+    private final ConcurrentMap<String, TextHandler> clients;
     private final ConcurrentMap<String, Set<String>> groups;
     private final static long MAX_FILE_SIZE = 150L * 1024 * 1024;
 
@@ -51,10 +51,10 @@ public class ChatHub {
         return Holder.INSTANCE;
     }
 
-    public String registerClient(String displayName, ClientHandler handler) {
+    public String registerClient(String displayName, TextHandler handler) {
         String clientId = "u-" + idCounter.incrementAndGet();
         clients.put(clientId, handler);
-        ClientHandler clientHandler = clients.get(clientId);
+        TextHandler clientHandler = clients.get(clientId);
         clientHandler.notifyMessage("[SYSTEM] Welcome " + displayName + "! Your assigned ID is: " + clientId);
         clientHandler.notifyMessage("[SYSTEM] Type /help to see available commands.");
         return clientId;
@@ -62,7 +62,8 @@ public class ChatHub {
 
     public void unregisterClient(String clientId) {
         // remove client
-        ClientHandler handler = clients.remove(clientId);
+        TextHandler handler = clients.remove(clientId);
+
         // remove client in group
         for (Map.Entry<String, Set<String>> group : groups.entrySet()) {
             group.getValue().remove(clientId);
@@ -76,7 +77,7 @@ public class ChatHub {
     }
 
     public void sendPrivateMsg(String fromClientId, String toClientId, String msg) {
-        ClientHandler clientHandler = clients.getOrDefault(toClientId, null);
+        TextHandler clientHandler = clients.getOrDefault(toClientId, null);
         if (clientHandler == null) {
             // send notify client is not exist
             return;
@@ -90,7 +91,7 @@ public class ChatHub {
     }
 
     public void createGroup(String groupName, String creatorId) {
-        ClientHandler clientHandler = clients.get(creatorId);
+        TextHandler clientHandler = clients.get(creatorId);
         if (!groupName.matches("^[\\p{L}\\d_ ]{2,23}")) {
             LOGGER.warning("Group name must only contain chracter, number, space and length from 2 to 23");
             clientHandler.notifyMessage(
@@ -111,7 +112,7 @@ public class ChatHub {
     }
 
     public void joinGroup(String groupName, String clientId) {
-        ClientHandler clientHandler = clients.get(clientId);
+        TextHandler clientHandler = clients.get(clientId);
 
         if (!groups.containsKey(groupName)) {
             LOGGER.warning("This group is not exist");
@@ -130,7 +131,7 @@ public class ChatHub {
     }
 
     public void sendGroupMsg(String fromClientId, String groupName, String content) {
-        ClientHandler sender = clients.get(fromClientId);
+        TextHandler sender = clients.get(fromClientId);
         if (!groups.containsKey(groupName)) {
             LOGGER.warning("This group is not exist");
             return;
@@ -143,7 +144,7 @@ public class ChatHub {
         String formatMsg = String.format("[Group #%s][%s (%s)]: %s", groupName, sender.getClientId(),
                 sender.getDisplayName(), content);
         for (String clientId : groupClient) {
-            ClientHandler client = clients.get(clientId);
+            TextHandler client = clients.get(clientId);
             if (client != null) {
                 client.notifyMessage(formatMsg);
             }
@@ -164,7 +165,7 @@ public class ChatHub {
     }
 
     public List<String> getJoinedGroups(String clientId) {
-        ClientHandler client = clients.get(clientId);
+        TextHandler client = clients.get(clientId);
         List<String> groupJoined = groups.entrySet().stream().filter(
                 g -> g.getValue().contains(clientId)).map(groupName -> groupName.getKey()).toList();
         if (groupJoined.isEmpty()) {
@@ -176,7 +177,7 @@ public class ChatHub {
     }
 
     public void leaveGroup(String groupName, String clientId) {
-        ClientHandler client = clients.get(clientId);
+        TextHandler client = clients.get(clientId);
 
         boolean isGroupExist = groups.containsKey(groupName);
         if (!isGroupExist) {
@@ -189,7 +190,7 @@ public class ChatHub {
             client.notifyMessage("[SYSTEM] You have left group '" + groupName + "'.");
             // send notify to other members
             for (String member : members) {
-                ClientHandler mem = clients.get(member);
+                TextHandler mem = clients.get(member);
                 mem.notifyMessage(String.format("[Group #%s][SYSTEM]: %s (%s) has left the group.", groupName,
                         client.getClientId(), client.getDisplayName()));
             }
@@ -202,7 +203,7 @@ public class ChatHub {
         }
     }
 
-    public void fileSend(ClientHandler sender, String subArgs) {
+    public void fileSend(TextHandler sender, String subArgs) {
         if (subArgs.isBlank()) {
             return;
         }
@@ -218,7 +219,7 @@ public class ChatHub {
                 sender.notifyMessage("[ERROR] Cannot send an empty file.");
                 return;
             }
-            ClientHandler receiver = clients.get(receiverId);
+            TextHandler receiver = clients.get(receiverId);
             if (receiver == null) {
                 sender.notifyMessage("[ERROR] Receiver is not online.");
                 return;
@@ -228,8 +229,12 @@ public class ChatHub {
             }
 
             String transderId = "ft-" + fileIdCouunter.incrementAndGet();
-            FileTransfer fileTransfer = new FileTransfer(transderId, sender.getClientId(), receiverId, fileName,
-                    fileSize);
+            FileTransfer fileTransfer = FileTransfer.builder()
+                    .transferId(transderId)
+                    .senderId(sender.getClientId())
+                    .receiverId(receiverId)
+                    .fileName(fileName)
+                    .build();
             // danh sach file
             pendingFiles.put(transderId, fileTransfer);
             sender.notifyMessage(
@@ -243,14 +248,14 @@ public class ChatHub {
         }
     }
 
-    public void fileAccept(ClientHandler client, String subArgs) {
+    public void fileAccept(TextHandler client, String subArgs) {
         String transferId = subArgs;
         FileTransfer transfer = pendingFiles.get(transferId);
         if (Objects.isNull(transfer)) {
             client.notifyMessage("[ERROR] File transfer request not found.");
             return;
         }
-        ClientHandler sender = clients.get(transfer.senderId());
+        TextHandler sender = clients.get(transfer.senderId());
         if (Objects.isNull(sender)) {
             client.notifyMessage("[ERROR] Sender `" + transfer.senderId() + "` is not online.");
             return;
@@ -266,14 +271,14 @@ public class ChatHub {
                 client.getClientId(), transfer.fileName(), transfer.transferId()));
     }
 
-    public void fileDecline(ClientHandler client, String subArgs) {
+    public void fileDecline(TextHandler client, String subArgs) {
         String transferId = subArgs;
         FileTransfer transfer = pendingFiles.get(transferId);
         if (Objects.isNull(transfer)) {
             client.notifyMessage("[ERROR] File transfer request not found.");
             return;
         }
-        ClientHandler sender = clients.get(transfer.senderId());
+        TextHandler sender = clients.get(transfer.senderId());
         if (!client.getClientId().equals(transfer.receiverId())) {
             client.notifyMessage("[ERROR] You are not the receiver of this file transfer.");
             return;
@@ -286,7 +291,7 @@ public class ChatHub {
                 client.getClientId(), transfer.fileName(), transfer.transferId()));
     }
 
-    public void fileRequest(ClientHandler client, String subArgs) {
+    public void fileRequest(TextHandler client, String subArgs) {
         List<String> l = pendingFiles.entrySet().stream()
                 .filter(i -> i.getValue().receiverId().equals(client.getClientId())).map(
                         f -> {

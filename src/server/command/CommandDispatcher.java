@@ -3,7 +3,7 @@ package server.command;
 import java.util.HashMap;
 import java.util.Map;
 
-import server.ClientHandler;
+import server.TextHandler;
 
 public class CommandDispatcher {
     private final Map<String, CommandStrategy> commands;
@@ -25,7 +25,7 @@ public class CommandDispatcher {
         commands.put("/file", new FileStrategy());
     }
 
-    public void dispatch(ClientHandler sender, String rawInput) {
+    public void dispatch(TextHandler sender, String rawInput) {
         if (rawInput.isBlank()) {
             return;
         }

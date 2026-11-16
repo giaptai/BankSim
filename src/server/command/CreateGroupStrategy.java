@@ -1,12 +1,12 @@
 package server.command;
 
 import server.ChatHub;
-import server.ClientHandler;
+import server.TextHandler;
 
 public class CreateGroupStrategy implements CommandStrategy {
 
     @Override
-    public void execute(ClientHandler sender, String args) {
+    public void execute(TextHandler sender, String args) {
         String groupName = args.trim();
         ChatHub.getInstance().createGroup(groupName, sender.getClientId());
     }

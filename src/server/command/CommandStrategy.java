@@ -1,8 +1,8 @@
 package server.command;
 
-import server.ClientHandler;
+import server.TextHandler;
 
 @FunctionalInterface
 public interface CommandStrategy {
-    void execute(ClientHandler sender, String args);
+    void execute(TextHandler sender, String args);
 }
