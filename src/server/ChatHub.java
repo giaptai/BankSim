@@ -82,6 +82,10 @@ public class ChatHub {
             // send notify client is not exist
             return;
         }
+        if (fromClientId.equals(toClientId)) {
+            clientHandler.notifyMessage("[You]: " + msg);
+            return;
+        }
         String formatMsg = String.format("[PM from %s (%s)]: %s", clientHandler.getClientId(),
                 clientHandler.getDisplayName(), msg);
         // send msg if client exists
@@ -160,7 +164,7 @@ public class ChatHub {
         return clients.values().stream().map(client -> {
             String clientId = client.getClientId();
             String displayName = client.getDisplayName();
-            return clientId + ": " + displayName;
+            return String.format("%s (%s)", displayName, clientId);
         }).toList();
     }
 

@@ -38,27 +38,27 @@ public class SoaptaClient {
     private final ConcurrentMap<String, Long> pendingDownloadSizes = new ConcurrentHashMap<>();
 
     public SoaptaClient() {
-        try (Scanner sc = new Scanner(System.in)) {
-            String ip = "";
-            String port = "";
-            do {
-                System.out.print("Enter host IP: ");
-                ip = sc.nextLine();
-                if (!ip.matches(AppConstants.VALIDATE_IP)) {
-                    System.out.println("Invalid host ip!");
-                    continue;
-                }
-                System.out.print("Enter host port: ");
-                port = sc.nextLine();
-                if (Integer.parseInt(port) < 0 || Integer.parseInt(port) > 65535) {
-                    System.out.println("Invalid host port!");
-                    continue;
-                }
-                this.host = ip;
-                this.port = Integer.parseInt(port);
-                break;
-            } while (true);
-        }
+        Scanner sc = new Scanner(System.in);
+        String ip = "";
+        String port = "";
+        do {
+            System.out.print("Enter host IP: ");
+            ip = sc.nextLine();
+            if (!ip.matches(AppConstants.VALIDATE_IP)) {
+                System.out.println("Invalid host ip!");
+                continue;
+            }
+            System.out.print("Enter host port: ");
+            port = sc.nextLine();
+            if (Integer.parseInt(port) < 0 || Integer.parseInt(port) > 65535) {
+                System.out.println("Invalid host port!");
+                continue;
+            }
+            this.host = ip;
+            this.port = Integer.parseInt(port);
+            break;
+        } while (true);
+
     }
 
     public void start() {
