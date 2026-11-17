@@ -6,6 +6,6 @@ public class JoinGroupStrategy implements CommandStrategy {
     @Override
     public void execute(server.TextHandler sender, String args) {
         String groupName = args;
-        ChatHub.getInstance().joinGroup(groupName, sender.getClientId());
+        // ChatHub.getInstance().joinGroup(groupName, sender.getClientId());
     }
 }

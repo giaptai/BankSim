@@ -11,7 +11,7 @@ public class LeaveGroupStrategy implements CommandStrategy {
 
         String[] groups = args.split("\\s+");
         for (String group : groups) {
-            ChatHub.getInstance().leaveGroup(group, clientId);
+            // ChatHub.getInstance().leaveGroup(group, clientId);
         }
     }
 
