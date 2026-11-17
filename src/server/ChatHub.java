@@ -133,24 +133,24 @@ public class ChatHub {
         return;
     }
 
-    // public void joinGroup(String groupName, String clientId) {
-    //     TextHandler clientHandler = clients.get(clientId);
+    public void joinGroup(String groupName, String clientId) {
+        TextHandler clientHandler = clients.get(clientId);
 
-    //     if (!groups.containsKey(groupName)) {
-    //         LOGGER.warning("This group is not exist");
-    //         clientHandler.notifyMessage("[ERROR] Group '" + groupName + "' does not exist.");
-    //         return;
-    //     }
-    //     Set<String> groupClient = groups.get(groupName);
-    //     if (groupClient.contains(clientId)) {
-    //         LOGGER.log(Level.INFO, "This client {0} is already member", clientId);
-    //         clientHandler.notifyMessage("[SYSTEM] You are already a member of group '" + groupName + "'.");
-    //         return;
-    //     }
-    //     groupClient.add(clientId);
-    //     LOGGER.log(Level.INFO, "Client {0} joins group", clientId);
-    //     clientHandler.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.");
-    // }
+        if (!groups.containsKey(groupName)) {
+            LOGGER.warning("This group is not exist");
+            clientHandler.notifyMessage("[ERROR] Group '" + groupName + "' does not exist.");
+            return;
+        }
+        Set<String> groupClient = groups.get(groupName);
+        if (groupClient.contains(clientId)) {
+            LOGGER.log(Level.INFO, "This client {0} is already member", clientId);
+            clientHandler.notifyMessage("[SYSTEM] You are already a member of group '" + groupName + "'.");
+            return;
+        }
+        groupClient.add(clientId);
+        LOGGER.log(Level.INFO, "Client {0} joins group", clientId);
+        clientHandler.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.");
+    }
 
     public void joinGroupNew(TextHandler client, String groupName) {
         if (!groupName.matches("^[\\p{Lower}\\p{Upper}\\d_-]{2,20}$")) {
@@ -243,17 +243,17 @@ public class ChatHub {
         }).toList();
     }
 
-    // public List<String> getJoinedGroups(String clientId) {
-    //     TextHandler client = clients.get(clientId);
-    //     List<String> groupJoined = groups.entrySet().stream().filter(
-    //             g -> g.getValue().contains(clientId)).map(groupName -> groupName.getKey()).toList();
-    //     if (groupJoined.isEmpty()) {
-    //         client.notifyMessage("You have not joined any groups yet. Use /join <group> or /create <group>.");
-    //         return List.of();
-    //     } else {
-    //         return groupJoined;
-    //     }
-    // }
+    public List<String> getJoinedGroups(String clientId) {
+        TextHandler client = clients.get(clientId);
+        List<String> groupJoined = groups.entrySet().stream().filter(
+                g -> g.getValue().contains(clientId)).map(groupName -> groupName.getKey()).toList();
+        if (groupJoined.isEmpty()) {
+            client.notifyMessage("You have not joined any groups yet. Use /join <group> or /create <group>.");
+            return List.of();
+        } else {
+            return groupJoined;
+        }
+    }
 
     public void myGroup(TextHandler client) {
         List<String> groupJoined = groups.entrySet().stream().filter(g -> g.getValue().contains(client.getClientId()))
