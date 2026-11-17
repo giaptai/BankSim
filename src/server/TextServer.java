@@ -2,7 +2,7 @@ package server;
 
 import java.net.Socket;
 
-import common.constants.Constants;
+import common.constants.AppConstants;
 
 public class TextServer extends SoaptaServer {
 
@@ -15,7 +15,7 @@ public class TextServer extends SoaptaServer {
     }
 
     private TextServer() {
-        super(8080, Constants.MAX_CONNECTIONS);
+        super(8080, AppConstants.MAX_CONNECTIONS);
     }
 
     @Override

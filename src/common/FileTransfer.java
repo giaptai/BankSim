@@ -43,13 +43,7 @@ public record FileTransfer(
                 }
 
                 public FileTransfer build() {
-                        return new FileTransfer(
-                                        transferId,
-                                        senderId,
-                                        receiverId,
-                                        fileName,
-                                        fileSize);
+                        return new FileTransfer(transferId, senderId, receiverId, fileName, fileSize);
                 }
         }
-
 }

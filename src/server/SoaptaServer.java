@@ -9,7 +9,7 @@ import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import common.constants.Constants;
+import common.constants.AppConstants;
 
 /**
  * 
@@ -26,7 +26,7 @@ public abstract class SoaptaServer {
 
     protected SoaptaServer(int port) {
         this.port = port;
-        this.connLimit = new Semaphore(Constants.MAX_CONNECTIONS);
+        this.connLimit = new Semaphore(AppConstants.MAX_CONNECTIONS);
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
         this.running = true;
     }

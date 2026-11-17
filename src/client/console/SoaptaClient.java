@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
+
+import common.constants.AppConstants;
 
 /**
  * Nhap du lieu toi server
@@ -35,14 +38,34 @@ public class SoaptaClient {
     private final ConcurrentMap<String, Long> pendingDownloadSizes = new ConcurrentHashMap<>();
 
     public SoaptaClient() {
-        this.host = "127.0.0.1";
-        this.port = 8080;
+        try (Scanner sc = new Scanner(System.in)) {
+            String ip = "";
+            String port = "";
+            do {
+                System.out.print("Enter host IP: ");
+                ip = sc.nextLine();
+                if (!ip.matches(AppConstants.VALIDATE_IP)) {
+                    System.out.println("Invalid host ip!");
+                    continue;
+                }
+                System.out.print("Enter host port: ");
+                port = sc.nextLine();
+                if (Integer.parseInt(port) < 0 || Integer.parseInt(port) > 65535) {
+                    System.out.println("Invalid host port!");
+                    continue;
+                }
+                this.host = ip;
+                this.port = Integer.parseInt(port);
+                break;
+            } while (true);
+        }
     }
 
     public void start() {
         try {
             System.out.printf("Connecting to SOAPTA Server (%s:%d)...\n", this.host, this.port);
-            this.socket = new Socket(this.host, this.port);
+            this.socket = new Socket();
+            this.socket.connect(new InetSocketAddress(this.host, this.port), 300000);
             try (
                     Scanner sc = new Scanner(System.in);
                     BufferedReader in = new BufferedReader(

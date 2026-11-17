@@ -14,6 +14,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import common.FileTransfer;
+import common.constants.AppConstants;
 
 /**
  * Manage user status, chat groups, and message coordination.
@@ -24,7 +25,6 @@ public class ChatHub {
     private final AtomicLong idCounter;
     private final ConcurrentMap<String, TextHandler> clients;
     private final ConcurrentMap<String, Set<String>> groups;
-    private final static long MAX_FILE_SIZE = 150L * 1024 * 1024;
 
     // file handler
     private final AtomicLong fileIdCouunter;
@@ -212,7 +212,7 @@ public class ChatHub {
         long fileSize = Long.parseLong(parts[1]);
         String fileName = parts[2];
         try {
-            if (fileSize > MAX_FILE_SIZE) {
+            if (fileSize > AppConstants.MAX_FILE_SIZE) {
                 sender.notifyMessage("[ERROR] File size exceeds the 150 MB limit.");
                 return;
             } else if (fileName.isEmpty()) {
@@ -234,6 +234,7 @@ public class ChatHub {
                     .senderId(sender.getClientId())
                     .receiverId(receiverId)
                     .fileName(fileName)
+                    .fileSize(fileSize)
                     .build();
             // danh sach file
             pendingFiles.put(transderId, fileTransfer);

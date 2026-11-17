@@ -2,12 +2,12 @@ package server;
 
 import java.net.Socket;
 
-import common.constants.Constants;
+import common.constants.AppConstants;
 
 public class FileServer extends SoaptaServer {
 
     private FileServer() {
-        super(8081, Constants.MAX_FILE_CONNECTIONS);
+        super(8081, AppConstants.MAX_FILE_CONNECTIONS);
     }
 
     private static class Holder {
