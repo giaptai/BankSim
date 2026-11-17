@@ -209,15 +209,16 @@ public class ChatHub {
         }
         String formatMsg = String.format("[Group #%s][%s (%s)]: %s", data[0], client.getClientId(),
                 client.getDisplayName(), data[1]);
-        for(String mem : mems){
+        for (String mem : mems) {
             TextHandler receiver = clients.get(mem);
             receiver.notifyMessage(formatMsg);
         }
     }
 
     // public List<String> getGroupsSummary() {
-    //     return groups.entrySet().stream()
-    //             .map(group -> String.format("- %s (%d members)\n", group.getKey(), group.getValue().size())).toList();
+    // return groups.entrySet().stream()
+    // .map(group -> String.format("- %s (%d members)\n", group.getKey(),
+    // group.getValue().size())).toList();
     // }
 
     public void getGroups(TextHandler client) {
@@ -326,8 +327,18 @@ public class ChatHub {
             return;
         }
         String[] parts = subArgs.split("\\s+", 3);
+        if (parts.length < 3) {
+            sender.notifyMessage("[ERROR] Invalid format (Web Console does not support local file path).");
+            return;
+        }
         String receiverId = parts[0];
-        long fileSize = Long.parseLong(parts[1]);
+        long fileSize;
+        try {
+            fileSize = Long.parseLong(parts[1]);
+        } catch (NumberFormatException e) {
+            sender.notifyMessage("[ERROR] Invalid file size.");
+            return;
+        }
         String fileName = parts[2];
         try {
             if (fileSize > AppConstants.MAX_FILE_SIZE) {
