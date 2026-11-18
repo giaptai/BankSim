@@ -55,8 +55,18 @@ public class ChatHub {
         String clientId = "u-" + idCounter.incrementAndGet();
         clients.put(clientId, handler);
         TextHandler clientHandler = clients.get(clientId);
-        clientHandler.notifyMessage("[SYSTEM] Welcome " + displayName + "! Your assigned ID is: " + clientId);
-        clientHandler.notifyMessage("[SYSTEM] Type /help to see available commands.");
+        String welcome = """
+                ========================================
+                           WELCOME TO SOAPTA
+                ========================================
+                Display name : %s
+                Client ID    : %s
+                ----------------------------------------
+                Type /help to view available commands.
+                Type /exit to disconnect.
+                ----------------------------------------
+                """.formatted(displayName, clientId);
+        clientHandler.notifyMessage(welcome);
         return clientId;
     }
 
@@ -118,18 +128,18 @@ public class ChatHub {
     public void createGroupNew(TextHandler client, String groupName) {
         if (!groupName.matches("^[a-zA-Z0-9_-]{2,20}$")) {
             client.notifyMessage(
-                    "[SYSTEM] Group name must only contain chracter, number, space and length from 2 to 20");
+                    "[SYSTEM] Group name must only contain chracter, number, space and length from 2 to 20\n");
             return;
         }
         if (groups.containsKey(groupName)) {
-            client.notifyMessage("[SYSTEM] This group name already exists!");
+            client.notifyMessage("[SYSTEM] This group name already exists!\n");
             return;
         }
         Set<String> members = new HashSet<>();
         members.add(client.getClientId());
         groups.put(groupName, members);
-        client.notifyMessage("[SYSTEM] Group '" + groupName + "' created successfully.");
-        client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.");
+        client.notifyMessage("[SYSTEM] Group '" + groupName + "' created successfully.\n");
+        client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.\n");
         return;
     }
 
@@ -155,22 +165,22 @@ public class ChatHub {
     public void joinGroupNew(TextHandler client, String groupName) {
         if (!groupName.matches("^[\\p{Lower}\\p{Upper}\\d_-]{2,20}$")) {
             client.notifyMessage(
-                    "[SYSTEM] Group name must only contain chracter, number, space and length from 2 to 20");
+                    "[SYSTEM] Group name must only contain chracter, number, space and length from 2 to 20\n");
             return;
         }
         if (!groups.containsKey(groupName)) {
-            client.notifyMessage("[ERROR] Group '" + groupName + "' does not exist.");
+            client.notifyMessage("[ERROR] Group '" + groupName + "' does not exist.\n");
             return;
         }
         Set<String> mems = groups.get(groupName);
         if (mems.contains(client.getClientId())) {
             LOGGER.log(Level.INFO, "This client {0} is already member", client.getClientId());
-            client.notifyMessage("[SYSTEM] You are already a member of group '" + groupName + "'.");
+            client.notifyMessage("[SYSTEM] You are already a member of group '" + groupName + "'.\n");
             return;
         }
         mems.add(client.getClientId());
         LOGGER.log(Level.INFO, "Client {0} joins group", client.getClientId());
-        client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.");
+        client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.\n");
     }
 
     public void sendGroupMsg(String fromClientId, String groupName, String content) {
@@ -183,7 +193,7 @@ public class ChatHub {
         if (!groupClient.contains(fromClientId)) {
             LOGGER.log(Level.WARNING, "This client {0} is not a member", fromClientId);
         }
-        // if valid then send message
+        // if it is valid then send message
         String formatMsg = String.format("[Group #%s][%s (%s)]: %s", groupName, sender.getClientId(),
                 sender.getDisplayName(), content);
         for (String clientId : groupClient) {
@@ -223,16 +233,20 @@ public class ChatHub {
 
     public void getGroups(TextHandler client) {
         List<String> listGroup = groups.entrySet().stream()
-                .map(group -> String.format("- %s (%d members)\n", group.getKey(), group.getValue().size())).toList();
+                .map(group -> String.format("- %s (%d members)", group.getKey(), group.getValue().size())).toList();
         if (listGroup.isEmpty()) {
-            client.notifyMessage("Active Groups (0): No groups created yet. Use /create <group> to start one.");
+            client.notifyMessage("Active Groups (0): No groups created yet. Use /group create to start one.\n");
             return;
         }
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("Active Groups (%s):\n", listGroup.size()));
-        for (String group : listGroup) {
-            sb.append(group);
+        for (int i = 0; i < listGroup.size(); i++) {
+            sb.append(String.format("- %-20s", listGroup.get(i)));
+            if (33 == (i + 1)) {
+                sb.append("\n");
+            }
         }
+        sb.append("\n");
         client.notifyMessage(sb.toString());
     }
 
@@ -249,7 +263,7 @@ public class ChatHub {
         List<String> groupJoined = groups.entrySet().stream().filter(
                 g -> g.getValue().contains(clientId)).map(groupName -> groupName.getKey()).toList();
         if (groupJoined.isEmpty()) {
-            client.notifyMessage("You have not joined any groups yet. Use /join <group> or /create <group>.");
+            client.notifyMessage("You have not joined any groups yet. Use /group join or /group create.\n");
             return List.of();
         } else {
             return groupJoined;
@@ -258,17 +272,21 @@ public class ChatHub {
 
     public void myGroup(TextHandler client) {
         List<String> groupJoined = groups.entrySet().stream().filter(g -> g.getValue().contains(client.getClientId()))
-                .map(g -> String.format("- %s (%d members)\n", g.getKey(), g.getValue().size()))
+                .map(g -> String.format("- %s (%d members)", g.getKey(), g.getValue().size()))
                 .toList();
         if (groupJoined.isEmpty()) {
-            client.notifyMessage("You have not joined any groups yet. Use /join <group> or /create <group>.");
+            client.notifyMessage("You have not joined any groups yet. Use /group join or /group create.\n");
             return;
         }
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("Joined Groups (%s):\n", groupJoined.size()));
-        for (String group : groupJoined) {
-            sb.append(group);
+        for (int i = 0; i < groupJoined.size(); i++) {
+            sb.append(String.format("- %-20s", groupJoined.get(i)));
+            if (33 == (i + 1)) {
+                sb.append("\n");
+            }
         }
+        sb.append("\n");
         client.notifyMessage(sb.toString());
     }
 
@@ -342,18 +360,18 @@ public class ChatHub {
         String fileName = parts[2];
         try {
             if (fileSize > AppConstants.MAX_FILE_SIZE) {
-                sender.notifyMessage("[ERROR] File size exceeds the 150 MB limit.");
+                sender.notifyMessage("[ERROR] File size exceeds the 150 MB limit.\n");
                 return;
             } else if (fileName.isEmpty()) {
-                sender.notifyMessage("[ERROR] Cannot send an empty file.");
+                sender.notifyMessage("[ERROR] Cannot send an empty file.\n");
                 return;
             }
             TextHandler receiver = clients.get(receiverId);
             if (receiver == null) {
-                sender.notifyMessage("[ERROR] Receiver is not online.");
+                sender.notifyMessage("[ERROR] Receiver is not online.\n");
                 return;
             } else if (receiverId.equals(sender.getClientId())) {
-                sender.notifyMessage("[ERROR] You cannot send a file to yourself.");
+                sender.notifyMessage("[ERROR] You cannot send a file to yourself.\n");
                 return;
             }
 
@@ -368,10 +386,10 @@ public class ChatHub {
             // danh sach file
             pendingFiles.put(transderId, fileTransfer);
             sender.notifyMessage(
-                    String.format("[FILE] File request sent to %s for '%s'. [ID: %s]", receiverId,
+                    String.format("[FILE] File request sent to %s for '%s'. [ID: %s]\n", receiverId,
                             fileName, transderId));
             receiver.notifyMessage(
-                    String.format("[FILE] Incoming file request: %s (%d bytes) | From: %s | Transfer Id: %s",
+                    String.format("[FILE] Incoming file request: %s (%d bytes) | From: %s | Transfer Id: %s\n",
                             fileName, fileSize, sender.getClientId(), transderId));
         } catch (Exception e) {
             LOGGER.warning("send file: " + e.getMessage());
@@ -382,22 +400,22 @@ public class ChatHub {
         String transferId = subArgs;
         FileTransfer transfer = pendingFiles.get(transferId);
         if (Objects.isNull(transfer)) {
-            client.notifyMessage("[ERROR] File transfer request not found.");
+            client.notifyMessage("[ERROR] File transfer request not found.\n");
             return;
         }
         TextHandler sender = clients.get(transfer.senderId());
         if (Objects.isNull(sender)) {
-            client.notifyMessage("[ERROR] Sender `" + transfer.senderId() + "` is not online.");
+            client.notifyMessage("[ERROR] Sender `" + transfer.senderId() + "` is not online.\n");
             return;
         }
         if (!client.getClientId().equals(transfer.receiverId())) {
-            client.notifyMessage("[ERROR] You are not the receiver of this file transfer.");
+            client.notifyMessage("[ERROR] You are not the receiver of this file transfer.\n");
             return;
         }
         client.notifyMessage(String.format(
-                "[FILE] You accepted the file transfer request from %s for '%s' (%d bytes). [ID: %s]",
+                "[FILE] You accepted the file transfer request from %s for '%s' (%d bytes). [ID: %s]\n",
                 transfer.senderId(), transfer.fileName(), transfer.fileSize(), transfer.transferId()));
-        sender.notifyMessage(String.format("[FILE] '%s' accepted your file transfer request for '%s'. [ID: %s]",
+        sender.notifyMessage(String.format("[FILE] '%s' accepted your file transfer request for '%s'. [ID: %s]\n",
                 client.getClientId(), transfer.fileName(), transfer.transferId()));
     }
 
@@ -405,19 +423,19 @@ public class ChatHub {
         String transferId = subArgs;
         FileTransfer transfer = pendingFiles.get(transferId);
         if (Objects.isNull(transfer)) {
-            client.notifyMessage("[ERROR] File transfer request not found.");
+            client.notifyMessage("[ERROR] File transfer request not found.\n");
             return;
         }
         TextHandler sender = clients.get(transfer.senderId());
         if (!client.getClientId().equals(transfer.receiverId())) {
-            client.notifyMessage("[ERROR] You are not the receiver of this file transfer.");
+            client.notifyMessage("[ERROR] You are not the receiver of this file transfer.\n");
             return;
         }
         pendingFiles.remove(transferId);
         client.notifyMessage(String.format(
-                "[FILE] You declined the file transfer request from %s for '%s'. [ID: %s]",
+                "[FILE] You declined the file transfer request from %s for '%s'. [ID: %s]\n",
                 transfer.senderId(), transfer.fileName(), transfer.transferId()));
-        sender.notifyMessage(String.format("[FILE] '%s' declined your file transfer request for '%s'. [ID: %s]",
+        sender.notifyMessage(String.format("[FILE] '%s' declined your file transfer request for '%s'. [ID: %s]\n",
                 client.getClientId(), transfer.fileName(), transfer.transferId()));
     }
 

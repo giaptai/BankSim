@@ -37,7 +37,7 @@ public class CommandDispatcher {
         if (strategy != null) {
             strategy.execute(sender, args);
         } else {
-            sender.notifyMessage("[ERROR] Unknown command. Type /help for assistance.");
+            sender.notifyMessage("[ERROR] Unknown command. Type /help for assistance.\n");
         }
     }
 }
