@@ -138,7 +138,7 @@ public class ChatHub {
         Set<String> members = new HashSet<>();
         members.add(client.getClientId());
         groups.put(groupName, members);
-        client.notifyMessage("[SYSTEM] Group '" + groupName + "' created successfully.\n");
+        client.notifyMessage("[SYSTEM] Group '" + groupName + "' created successfully.");
         client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.\n");
         return;
     }
@@ -241,7 +241,7 @@ public class ChatHub {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("Active Groups (%s):\n", listGroup.size()));
         for (int i = 0; i < listGroup.size(); i++) {
-            sb.append(String.format("- %-20s", listGroup.get(i)));
+            sb.append(String.format("%-20s", listGroup.get(i)));
             if (33 == (i + 1)) {
                 sb.append("\n");
             }
