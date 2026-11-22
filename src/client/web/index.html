@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soapta</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+        :root {
+            --bg: #000000;
+            --primary: #11151b;
+            --second: #202630;
+            --third: #0e1015;
+            --text-primary: #75b8f2;
+            --text-secondary: #e0e5eb;
+            --text-info: #929eac;
+            --status-online: #3fb950;
+            --status-offline: #9CA3AF;
+        }
+
+        * {
+            padding: 0;
+            margin: 0;
+            font-family: "JetBrains Mono", monospace;
+            font-optical-sizing: auto;
+            font-weight: 300;
+            font-style: normal;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--primary);
+        }
+
+        .container {
+            place-items: center;
+            /* height: 100dvh; */
+        }
+
+        .terminal {
+            display: flex;
+            flex-direction: column;
+            margin: 80px auto;
+            width: max(650px, 80%);
+            height: max(450px, 80dvh);
+            border-radius: 12px;
+            border: 1px solid var(--second);
+            box-sizing: border-box;
+            background-color: var(--primary);
+            color: var(--text-secondary);
+        }
+
+        .header {
+            padding: 12px;
+            width: 100%;
+            height: 50px;
+            border-bottom: 1px solid var(--second);
+            box-sizing: border-box;
+            font-size: small;
+
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .content {
+            flex-grow: 1;
+            background-color: var(--primary);
+            box-sizing: border-box;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 12px;
+            font-size: 13.5px;
+            white-space: pre-wrap;
+            /* scrollbar-width: thin; */
+            /* scrollbar-color: var(--second) transparent; */
+        }
+
+        /*Kích thước scrollbar  */
+        .content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        /*  Phần rãnh scrollbar */
+        .content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* Thanh kéo */
+        .content::-webkit-scrollbar-thumb {
+            background: var(--second);
+            border-radius: 10px;
+        }
+
+        /* Thanh kéo khi hover */
+        .content::-webkit-scrollbar-thumb:hover {
+            /* background: var(--second); */
+        }
+
+        .composer {
+            width: 100%;
+            height: 44px;
+            border-top: 1px solid var(--second);
+            background-color: var(--third);
+            border-radius: 0 0 12px 12px;
+            box-sizing: border-box;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .composer>button {
+            position: absolute;
+            top: 33%;
+            background: transparent;
+            outline: none;
+            border: none;
+            left: 12px;
+            color: var(--text-info);
+            font-weight: bold;
+            height: 37%;
+            width: 22px;
+        }
+
+        .composer>button>img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .composer>input {
+            width: 100%;
+            height: 100%;
+            background-color: var(--third);
+            border: none;
+            outline: none;
+            border-radius: 0 0 12px 12px;
+            color: var(--text-secondary);
+            text-indent: 36px;
+        }
+
+        .composer>label {
+            display: block;
+            width: 22px;
+            height: 47%;
+            position: absolute;
+            right: 12px;
+            bottom: 25%;
+            cursor: pointer;
+        }
+
+        .composer>label>img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .composer>label>input[type=file] {
+            display: none;
+            color: transparent;
+        }
+
+        .status-wrap {
+            display: flex;
+            align-items: center;
+            column-gap: 8px;
+        }
+
+        .status-wrap>.dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        .status-wrap>.dot.connected {
+            background: var(--status-online);
+        }
+
+        .status-wrap>.dot.disconnected {
+            background: var(--status-offline);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="terminal">
+            <div class="header">
+                <span>SOAPTA</span>
+                <div class="info">
+                    <span class="status-wrap">
+                        <span class="dot"></span>
+                        <span class="status">Connected</span>
+                    </span>
+                </div>
+            </div>
+            <div class="content"></div>
+            <div class="composer">
+                <button type="button">
+                    <img src="./arrow-right-svgrepo-com.svg" alt="Arrow Right">
+                </button>
+                <input name="input-msg" type="text" placeholder="Type a command (e.g. /help)..." />
+                <label for="file">
+                    <img src="./attach-svgrepo-com.svg" alt="Send File">
+                    <input id="file" type="file" />
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script defer>
+        const socket = (() => {
+            const SCHEME = location.protocol === 'https:' ? 'wss' : 'ws';
+            const HOST = '127.0.0.1';
+            const PORT = 8082;
+            const ws = new WebSocket(`${SCHEME}://${HOST}:${PORT}`);
+
+            ws.onopen = (evt) => {
+                appendLine(`Connected to SOAPTA Bridge!`);
+                appendLine("Enter display name: ");
+            }
+
+            ws.onmessage = (evt) => {
+                console.log("Received:", evt.data);
+                appendLine(evt.data);
+            }
+
+            ws.onclose = () => {
+                console.log("Disconnected from Bridge");
+                document.querySelector('.info').innerHTML = `<span class="status-wrap">
+                        <span class="dot disconnected"></span>
+                        <span class="status">Offline</span>
+                    </span>`;
+            }
+
+            ws.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                document.querySelector('.info').innerHTML = `<span class="status-wrap">
+                        <span class="dot disconnected"></span>
+                        <span class="status">Offline</span>
+                    </span>`;
+            }
+            return ws;
+        })();
+        document.querySelector('.composer input[type=text]').addEventListener('keydown', (evt) => {
+            // socket.onmessage(evt.data);
+            if (evt.key === 'Enter') {
+                const command = evt.target.value.trim();
+                if (command && socket.readyState === WebSocket.OPEN) {
+                    document.querySelector('.info').innerHTML = `<span class="status-wrap">
+                        <span class="dot connected"></span>
+                        <span class="status">Online</span>
+                    </span>`;
+                    socket.send(command); 
+                    evt.target.value = '';
+                }
+            }
+        });
+        const contentEl = document.querySelector('.content');
+        function appendLine(text) {
+            console.log(contentEl.scrollHeight);
+            contentEl.textContent += text + '\n';
+            contentEl.scrollTop = contentEl.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>
