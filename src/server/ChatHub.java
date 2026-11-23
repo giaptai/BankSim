@@ -72,7 +72,7 @@ public class ChatHub {
 
     public void unregisterClient(String clientId) {
         // remove client
-        TextHandler handler = clients.remove(clientId);
+        TextHandler client = clients.remove(clientId);
 
         // remove client in group
         for (Map.Entry<String, Set<String>> group : groups.entrySet()) {
@@ -84,48 +84,25 @@ public class ChatHub {
             }
             return false;
         });
+        LOGGER.info(String.format("Client %s (%s)  left server", client.getDisplayName(), client.getClientId()));
     }
 
     public void sendPrivateMsg(String fromClientId, String toClientId, String msg) {
-        TextHandler clientHandler = clients.getOrDefault(toClientId, null);
-        if (clientHandler == null) {
-            // send notify client is not exist
+        TextHandler sender = clients.get(fromClientId);
+        TextHandler receiver = clients.getOrDefault(toClientId, null);
+        if (receiver == null) {
             return;
         }
         if (fromClientId.equals(toClientId)) {
-            clientHandler.notifyMessage("[You]: " + msg);
+            receiver.notifyMessage("[You]: " + msg);
             return;
         }
-        String formatMsg = String.format("[PM from %s (%s)]: %s", clientHandler.getClientId(),
-                clientHandler.getDisplayName(), msg);
-        // send msg if client exists
-        // clientHandler.notifyMessage("The receipent " + toClientId + " is not exist");
-
-        clientHandler.notifyMessage(formatMsg);
+        String formatMsg = String.format("[PM from %s (%s)]: %s", sender.getClientId(),
+                sender.getDisplayName(), msg);
+        receiver.notifyMessage(formatMsg);
     }
 
-    public void createGroup(String groupName, String creatorId) {
-        TextHandler clientHandler = clients.get(creatorId);
-        if (!groupName.matches("^[\\p{L}\\d_ ]{2,23}")) {
-            LOGGER.warning("Group name must only contain chracter, number, space and length from 2 to 23");
-            clientHandler.notifyMessage(
-                    "[SYSTEM] Group name must only contain chracter, number, space and length from 2 to 23");
-            return;
-        }
-        Set<String> newGroup = new HashSet<>();
-        newGroup.add(creatorId);
-
-        Set<String> group = groups.putIfAbsent(groupName, newGroup);
-        if (group != null) {
-            LOGGER.warning("This group name already exists!");
-            clientHandler.notifyMessage("[SYSTEM] This group name already exists!");
-            return;
-        }
-        clientHandler.notifyMessage("[SYSTEM] Group '" + groupName + "' created successfully.");
-        clientHandler.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.");
-    }
-
-    public void createGroupNew(TextHandler client, String groupName) {
+    public void createGroup(TextHandler client, String groupName) {
         if (!groupName.matches("^[a-zA-Z0-9_-]{2,20}$")) {
             client.notifyMessage(
                     "[SYSTEM] Group name must only contain chracter, number, space and length from 2 to 20\n");
@@ -143,26 +120,7 @@ public class ChatHub {
         return;
     }
 
-    public void joinGroup(String groupName, String clientId) {
-        TextHandler clientHandler = clients.get(clientId);
-
-        if (!groups.containsKey(groupName)) {
-            LOGGER.warning("This group is not exist");
-            clientHandler.notifyMessage("[ERROR] Group '" + groupName + "' does not exist.");
-            return;
-        }
-        Set<String> groupClient = groups.get(groupName);
-        if (groupClient.contains(clientId)) {
-            LOGGER.log(Level.INFO, "This client {0} is already member", clientId);
-            clientHandler.notifyMessage("[SYSTEM] You are already a member of group '" + groupName + "'.");
-            return;
-        }
-        groupClient.add(clientId);
-        LOGGER.log(Level.INFO, "Client {0} joins group", clientId);
-        clientHandler.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.");
-    }
-
-    public void joinGroupNew(TextHandler client, String groupName) {
+    public void joinGroup(TextHandler client, String groupName) {
         if (!groupName.matches("^[\\p{Lower}\\p{Upper}\\d_-]{2,20}$")) {
             client.notifyMessage(
                     "[SYSTEM] Group name must only contain chracter, number, space and length from 2 to 20\n");
@@ -183,28 +141,7 @@ public class ChatHub {
         client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.\n");
     }
 
-    public void sendGroupMsg(String fromClientId, String groupName, String content) {
-        TextHandler sender = clients.get(fromClientId);
-        if (!groups.containsKey(groupName)) {
-            LOGGER.warning("This group is not exist");
-            return;
-        }
-        Set<String> groupClient = groups.get(groupName);
-        if (!groupClient.contains(fromClientId)) {
-            LOGGER.log(Level.WARNING, "This client {0} is not a member", fromClientId);
-        }
-        // if it is valid then send message
-        String formatMsg = String.format("[Group #%s][%s (%s)]: %s", groupName, sender.getClientId(),
-                sender.getDisplayName(), content);
-        for (String clientId : groupClient) {
-            TextHandler client = clients.get(clientId);
-            if (client != null) {
-                client.notifyMessage(formatMsg);
-            }
-        }
-    }
-
-    public void sendGroupMsgNew(TextHandler client, String groupAndMsg) {
+    public void sendGroupMsg(TextHandler client, String groupAndMsg) {
         String[] data = groupAndMsg.split("\\s+", 2);
         if (!groups.containsKey(data[0])) {
             LOGGER.warning("This group is not exist");
@@ -224,12 +161,6 @@ public class ChatHub {
             receiver.notifyMessage(formatMsg);
         }
     }
-
-    // public List<String> getGroupsSummary() {
-    // return groups.entrySet().stream()
-    // .map(group -> String.format("- %s (%d members)\n", group.getKey(),
-    // group.getValue().size())).toList();
-    // }
 
     public void getGroups(TextHandler client) {
         List<String> listGroup = groups.entrySet().stream()
@@ -258,18 +189,6 @@ public class ChatHub {
         }).toList();
     }
 
-    public List<String> getJoinedGroups(String clientId) {
-        TextHandler client = clients.get(clientId);
-        List<String> groupJoined = groups.entrySet().stream().filter(
-                g -> g.getValue().contains(clientId)).map(groupName -> groupName.getKey()).toList();
-        if (groupJoined.isEmpty()) {
-            client.notifyMessage("You have not joined any groups yet. Use /group join or /group create.\n");
-            return List.of();
-        } else {
-            return groupJoined;
-        }
-    }
-
     public void myGroup(TextHandler client) {
         List<String> groupJoined = groups.entrySet().stream().filter(g -> g.getValue().contains(client.getClientId()))
                 .map(g -> String.format("- %s (%d members)", g.getKey(), g.getValue().size()))
@@ -290,34 +209,8 @@ public class ChatHub {
         client.notifyMessage(sb.toString());
     }
 
-    public void leaveGroup(String groupName, String clientId) {
-        TextHandler client = clients.get(clientId);
 
-        boolean isGroupExist = groups.containsKey(groupName);
-        if (!isGroupExist) {
-            client.notifyMessage("[ERROR] Group '" + groupName + "' does not exist.");
-            return;
-        }
-        Set<String> members = groups.get(groupName);
-        if (members.contains(clientId)) {
-            members.remove(clientId);
-            client.notifyMessage("[SYSTEM] You have left group '" + groupName + "'.");
-            // send notify to other members
-            for (String member : members) {
-                TextHandler mem = clients.get(member);
-                mem.notifyMessage(String.format("[Group #%s][SYSTEM]: %s (%s) has left the group.", groupName,
-                        client.getClientId(), client.getDisplayName()));
-            }
-        } else {
-            client.notifyMessage("[ERROR] You are not a member of group '" + groupName + "'.");
-        }
-        if (members.isEmpty()) {
-            groups.remove(groupName);
-            LOGGER.info("Group '" + groupName + "' was automatically removed (0 members remaining).");
-        }
-    }
-
-    public void leaveGroupNew(TextHandler client, String groupName) {
+    public void leaveGroup(TextHandler client, String groupName) {
         if (!groupName.matches("^[\\p{Lower}\\p{Upper}\\d_-]{2,20}$")) {
             client.notifyMessage(
                     "[SYSTEM] Group name must only contain chracter, number, space and length from 2 to 20");

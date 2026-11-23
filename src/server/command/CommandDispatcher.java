@@ -14,14 +14,8 @@ public class CommandDispatcher {
     public CommandDispatcher() {
         commands.put("/help", new HelpStrategy());
         commands.put("/list", new ListUsersStrategy());
-        // commands.put("/create", new CreateGroupStrategy());
-        // commands.put("/join", new JoinGroupStrategy());
-        // commands.put("/group", new GroupMsgStrategy());
         commands.put("/msg", new PrivateMsgStrategy());
         commands.put("/exit", new ExitStrategy());
-        // commands.put("/groups", new ListGroupsStrategy());
-        // commands.put("/leave", new LeaveGroupStrategy());
-        // commands.put("/mygroups", new MyGroupsStrategy());
         commands.put("/file", new FileStrategy());
         commands.put("/group", new GroupStrategy());
     }
