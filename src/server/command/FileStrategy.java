@@ -14,7 +14,8 @@ public class FileStrategy implements CommandStrategy {
         String[] parts = args.split("\\s+", 2);
         String subArgs = parts.length > 1 ? parts[1].trim() : ""; // thông tin file
         ChatHub hub = ChatHub.getInstance();
-        switch (parts[0].toLowerCase()) {
+        sender.notifyMessage("Function is still developing");
+        switch ("") {
             case "accept":
                 hub.fileAccept(sender, subArgs);
                 break;

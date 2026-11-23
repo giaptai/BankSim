@@ -16,13 +16,13 @@ public class GroupStrategy implements CommandStrategy {
         switch (commands[0]) {
             case "list" -> hub.getGroups(sender);
             case "my" -> hub.myGroup(sender);
-            case "create" -> hub.createGroupNew(sender, payload);
-            case "join" -> hub.joinGroupNew(sender, payload);
-            case "leave" -> hub.leaveGroupNew(sender, payload);
+            case "create" -> hub.createGroup(sender, payload);
+            case "join" -> hub.joinGroup(sender, payload);
+            case "leave" -> hub.leaveGroup(sender, payload);
             case "members" -> {
                 sender.notifyMessage("[SYSTEM] Sorry, this feature is not done yet\n");
             }
-            case "send" -> hub.sendGroupMsgNew(sender, payload);
+            case "send" -> hub.sendGroupMsg(sender, payload);
             default -> {
                 sender.notifyMessage("[ERROR] Unknown /group command. Type /help for assistance.\n");
             }

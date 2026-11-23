@@ -37,7 +37,9 @@ public abstract class SoaptaServer {
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
         this.running = true;
     }
-
+    /**
+     * run socket server
+     */
     protected final void start() {
         LOGGER.log(Level.INFO, "Running Soapta server on port {0}", String.valueOf(this.port));
         try (ServerSocket server = new ServerSocket(port)) {
@@ -49,6 +51,7 @@ public abstract class SoaptaServer {
         }
     }
 
+    // accept connection from socket client
     private void acceptLoop(ServerSocket serverSocket) {
         boolean permitAcquired = false;
         try {

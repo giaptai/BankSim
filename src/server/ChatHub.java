@@ -67,13 +67,13 @@ public class ChatHub {
                 ----------------------------------------
                 """.formatted(displayName, clientId);
         clientHandler.notifyMessage(welcome);
+        LOGGER.info(String.format("Client %s (%s) joined the server", displayName, clientId));
         return clientId;
     }
 
     public void unregisterClient(String clientId) {
         // remove client
         TextHandler client = clients.remove(clientId);
-
         // remove client in group
         for (Map.Entry<String, Set<String>> group : groups.entrySet()) {
             group.getValue().remove(clientId);
@@ -84,22 +84,23 @@ public class ChatHub {
             }
             return false;
         });
-        LOGGER.info(String.format("Client %s (%s)  left server", client.getDisplayName(), client.getClientId()));
+        LOGGER.info(String.format("Client %s (%s) left server", client.getDisplayName(), client.getClientId()));
     }
 
-    public void sendPrivateMsg(String fromClientId, String toClientId, String msg) {
-        TextHandler sender = clients.get(fromClientId);
-        TextHandler receiver = clients.getOrDefault(toClientId, null);
+    public void sendPrivateMsg(TextHandler sender, String receiverId, String msg) {
+        TextHandler receiver = clients.getOrDefault(receiverId, null);
         if (receiver == null) {
             return;
         }
-        if (fromClientId.equals(toClientId)) {
+        if (sender.getClientId().equals(receiverId)) {
             receiver.notifyMessage("[You]: " + msg);
             return;
         }
         String formatMsg = String.format("[PM from %s (%s)]: %s", sender.getClientId(),
                 sender.getDisplayName(), msg);
         receiver.notifyMessage(formatMsg);
+        LOGGER.info(String.format("Client %s (%s) sent msg to Client %s (%s)", sender.getDisplayName(),
+                sender.getClientId(), receiver.getDisplayName(), receiver.getClientId()));
     }
 
     public void createGroup(TextHandler client, String groupName) {
@@ -112,12 +113,15 @@ public class ChatHub {
             client.notifyMessage("[SYSTEM] This group name already exists!\n");
             return;
         }
+
         Set<String> members = new HashSet<>();
         members.add(client.getClientId());
         groups.put(groupName, members);
         client.notifyMessage("[SYSTEM] Group '" + groupName + "' created successfully.");
         client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.\n");
-        return;
+
+        LOGGER.info(String.format("Client %s (%s) created % group", client.getDisplayName(), client.getClientId(),
+                groupName));
     }
 
     public void joinGroup(TextHandler client, String groupName) {
@@ -132,25 +136,22 @@ public class ChatHub {
         }
         Set<String> mems = groups.get(groupName);
         if (mems.contains(client.getClientId())) {
-            LOGGER.log(Level.INFO, "This client {0} is already member", client.getClientId());
             client.notifyMessage("[SYSTEM] You are already a member of group '" + groupName + "'.\n");
             return;
         }
         mems.add(client.getClientId());
-        LOGGER.log(Level.INFO, "Client {0} joins group", client.getClientId());
+        LOGGER.log(Level.INFO, "Client {0} joined group", client.getClientId());
         client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.\n");
     }
 
     public void sendGroupMsg(TextHandler client, String groupAndMsg) {
         String[] data = groupAndMsg.split("\\s+", 2);
         if (!groups.containsKey(data[0])) {
-            LOGGER.warning("This group is not exist");
             client.notifyMessage("[ERROR] Group '" + data[0] + "' does not exist.");
             return;
         }
         Set<String> mems = groups.get(data[0]);
         if (!mems.contains(client.getClientId())) {
-            LOGGER.log(Level.WARNING, "This client {0} is not a member", client.getClientId());
             client.notifyMessage(groupAndMsg);
             return;
         }
@@ -173,7 +174,7 @@ public class ChatHub {
         sb.append(String.format("Active Groups (%s):\n", listGroup.size()));
         for (int i = 0; i < listGroup.size(); i++) {
             sb.append(String.format("%-20s", listGroup.get(i)));
-            if (33 == (i + 1)) {
+            if ((i + 1) % 3 == 0) {
                 sb.append("\n");
             }
         }
@@ -200,15 +201,14 @@ public class ChatHub {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("Joined Groups (%s):\n", groupJoined.size()));
         for (int i = 0; i < groupJoined.size(); i++) {
-            sb.append(String.format("- %-20s", groupJoined.get(i)));
-            if (33 == (i + 1)) {
+            sb.append(String.format("%-20s", groupJoined.get(i)));
+            if ((i + 1) % 3 == 0) {
                 sb.append("\n");
             }
         }
         sb.append("\n");
         client.notifyMessage(sb.toString());
     }
-
 
     public void leaveGroup(TextHandler client, String groupName) {
         if (!groupName.matches("^[\\p{Lower}\\p{Upper}\\d_-]{2,20}$")) {
@@ -224,6 +224,8 @@ public class ChatHub {
         if (mems.contains(client.getClientId())) {
             client.notifyMessage("[SYSTEM] You have left group '" + groupName + "'.");
             mems.remove(client.getClientId());
+            LOGGER.info(String.format("Client %s (%s) left %s group", client.getDisplayName(), client.getClientId(),
+                    groupName));
             if (mems.isEmpty()) {
                 groups.remove(groupName);
                 LOGGER.info("Group '" + groupName + "' was automatically removed (0 members remaining).");

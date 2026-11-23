@@ -72,18 +72,23 @@ public class SoaptaClient {
                             new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
                     PrintWriter out = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8)) {
                 System.out.println("Connected!\n");
-
                 System.out.print("Enter display name: ");
-                String displayName = sc.nextLine();
-                out.println(displayName);
-
-                String welcome = in.readLine();
-                String help = in.readLine();
-
-                System.out.println(welcome);
-                System.out.println(help);
+                out.println(sc.nextLine());
+                while (true) {
+                    String res = in.readLine();
+                    if (res == null) {
+                        return;
+                    }
+                    System.out.println(res);
+                    if (res.startsWith("[ERROR]")) {
+                        System.out.print("\nRe-enter display name: ");
+                        String displayName = sc.nextLine();
+                        out.println(displayName);
+                    } else {
+                        break;
+                    }
+                }
                 System.out.println();
-                this.clientId = welcome.substring(welcome.lastIndexOf(" ") + 1);
 
                 // receive message from server
                 Thread.ofPlatform().daemon(true).start(new Runnable() {
@@ -94,6 +99,16 @@ public class SoaptaClient {
                             while ((msgFromServer = in.readLine()) != null) {
                                 System.out.print("\r\033[K");
                                 System.out.println(msgFromServer);
+
+                                if (msgFromServer.contains("Your assigned ID is: ")) {
+                                    SoaptaClient.this.clientId = msgFromServer
+                                            .substring(msgFromServer.lastIndexOf(" ") + 1).trim();
+                                } else if (msgFromServer.contains("Client ID")) {
+                                    SoaptaClient.this.clientId = msgFromServer
+                                            .substring(msgFromServer.lastIndexOf(":") + 1)
+                                            .trim();
+                                }
+
                                 if (msgFromServer.startsWith("[FILE]")) {
                                     if (msgFromServer.contains("File request sent to")) {
                                         String transferId = msgFromServer.substring(
@@ -164,6 +179,12 @@ public class SoaptaClient {
         }
     }
 
+    /**
+     * send file to file server
+     * 
+     * @param input
+     * @param out
+     */
     private void sendFile(String input, PrintWriter out) {
         String subArgs = input.substring("/file send".length()).trim();
         String[] parts = subArgs.split("\\s+", 2);
@@ -198,6 +219,12 @@ public class SoaptaClient {
         }
     }
 
+    /**
+     * file transfer
+     * 
+     * @param transferId
+     * @param role
+     */
     private void connFileServer(String transferId, String role) {
         Socket socket = null;
         try {
@@ -207,6 +234,7 @@ public class SoaptaClient {
             out.flush();
 
             // handle from server
+            // retrieve file
             if ("RECEIVER".equals(role)) {
                 String fileName = pendingDownloads.remove(transferId);
                 Long fileSize = pendingDownloadSizes.remove(transferId);
