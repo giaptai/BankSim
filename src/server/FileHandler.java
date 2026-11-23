@@ -34,6 +34,7 @@ public class FileHandler implements Runnable {
                 sb.append((char) b);
             }
 
+            // [ROLE] transferId clientId
             String res = sb.toString().trim();
             String[] parts = res.split("\\s+");
             String role = res.substring(parts[0].lastIndexOf("[") + 1, parts[0].lastIndexOf("]"));
@@ -60,11 +61,10 @@ public class FileHandler implements Runnable {
                 return;
             }
             CompletableFuture<Void> transDoneFuture = hub.getTransferDoneFuture(transferId);
-            //
             if ("RECEIVER".equals(role)) {
                 boolean result = hub.getReceiverSocketFuture(transferId).complete(socket);
                 transDoneFuture.get(60, TimeUnit.SECONDS);
-            } else if ("SENDER".equals(role)) {
+            } else if ("SENDER".equals(role)) { // send file
                 Socket socketReceiver = hub.getReceiverSocketFuture(transferId).get(60, TimeUnit.SECONDS);
                 OutputStream out = socketReceiver.getOutputStream();
                 long remaining = transfer.fileSize();
