@@ -14,23 +14,23 @@ public class FileStrategy implements CommandStrategy {
         String[] parts = args.split("\\s+", 2);
         String subArgs = parts.length > 1 ? parts[1].trim() : ""; // thông tin file
         ChatHub hub = ChatHub.getInstance();
-        sender.notifyMessage("Function is still developing");
-        switch ("") {
-            case "accept":
-                hub.fileAccept(sender, subArgs);
-                break;
-            case "decline":
-                hub.fileDecline(sender, subArgs);
-                break;
-            case "requests":
-                hub.fileRequest(sender, subArgs);
-                break;
-            case "send":
-                hub.fileSend(sender, subArgs);
-                break;
-            default:
-                sender.notifyMessage("[ERROR] Unknown command. Type /help for assistance.");
-                break;
-        }
+        sender.notifyMessage("[SYSTEM] Function is still developing");
+        // switch ("") {
+        //     case "accept":
+        //         hub.fileAccept(sender, subArgs);
+        //         break;
+        //     case "decline":
+        //         hub.fileDecline(sender, subArgs);
+        //         break;
+        //     case "requests":
+        //         hub.fileRequest(sender, subArgs);
+        //         break;
+        //     case "send":
+        //         hub.fileSend(sender, subArgs);
+        //         break;
+        //     default:
+        //         sender.notifyMessage("[ERROR] Unknown command. Type /help for assistance.");
+        //         break;
+        // }
     }
 }
