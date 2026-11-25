@@ -117,10 +117,11 @@ public class ChatHub {
         Set<String> members = new HashSet<>();
         members.add(client.getClientId());
         groups.put(groupName, members);
+
         client.notifyMessage("[SYSTEM] Group '" + groupName + "' created successfully.");
         client.notifyMessage("[SYSTEM] You have joined group '" + groupName + "'.\n");
 
-        LOGGER.info(String.format("Client %s (%s) created % group", client.getDisplayName(), client.getClientId(),
+        LOGGER.info(String.format("Client %s (%s) created %s group", client.getDisplayName(), client.getClientId(),
                 groupName));
     }
 
